@@ -1,0 +1,30 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/theme/app_theme.dart';
+import '../features/backup/application/backup_providers.dart';
+import '../features/recurring/application/recurring_providers.dart';
+import '../features/settings/application/settings_providers.dart';
+import 'router.dart';
+
+class ExpenseManagerApp extends ConsumerWidget {
+  const ExpenseManagerApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
+    // Posts due recurring charges on launch and whenever the items change.
+    ref.watch(autoPostRecurringProvider);
+    // Automatic backup when the schedule says it is due.
+    ref.watch(autoBackupProvider);
+    return MaterialApp.router(
+      title: 'Expense Manager',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
+      themeAnimationDuration: const Duration(milliseconds: 250),
+      routerConfig: ref.watch(routerProvider),
+    );
+  }
+}
