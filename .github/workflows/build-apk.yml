@@ -1,0 +1,108 @@
+# Builds the Android APK on every push to main and publishes it in GitHub
+# Releases. Download link that always points to the newest build:
+#   https://github.com/<user>/<repo>/releases/latest/download/ExpenseManager.apk
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # "Run workflow" button in the Actions tab
+
+permissions:
+  contents: write # needed only to create the release
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: expense_manager
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false # later steps never need the write token
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Check project
+        run: |
+          flutter --version
+          test -d android || { echo "::error::The android/ folder is missing from the repository. Commit expense_manager/android."; exit 1; }
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate database code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # Analysis and tests are reported but never block the APK.
+      - name: Analyze
+        continue-on-error: true
+        run: flutter analyze --no-fatal-infos
+
+      - name: Tests
+        continue-on-error: true
+        run: |
+          sudo apt-get update -q >/dev/null && sudo apt-get install -y -q libsqlite3-dev >/dev/null
+          flutter test
+
+      - name: Signing key
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          for v in STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            [ -n "${!v}" ] || { echo "::error::Missing signing secret for $v"; exit 1; }
+          done
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' \
+            "$STORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+
+      - name: Warn if unsigned
+        if: env.HAS_SIGNING_KEY != 'true'
+        run: echo "::warning::No signing secrets. The APK uses a temporary key, so it cannot update a previous install."
+
+      - name: Build APK
+        run: |
+          flutter build apk --release --build-number=${{ github.run_number }}
+          cp build/app/outputs/flutter-apk/app-release.apk ExpenseManager.apk
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f android/key.properties android/app/upload-keystore.jks
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ExpenseManager-apk
+          path: expense_manager/ExpenseManager.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Expense Manager — build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: expense_manager/ExpenseManager.apk
+          body: |
+            Download **ExpenseManager.apk**, open it on your Android phone and allow "install unknown apps".
+            Commit: ${{ github.sha }}

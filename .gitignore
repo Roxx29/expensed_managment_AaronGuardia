@@ -1,0 +1,8 @@
+# Built APKs are published in GitHub Releases, not committed.
+APK/
+*.apk
+# Signing secrets must never be committed (defense in depth).
+**/key.properties
+**/*.jks
+**/*.keystore
+**/SECRETOS_GITHUB_NO_SUBIR.txt
