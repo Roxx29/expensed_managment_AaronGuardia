@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/currency.dart';
 import '../../../core/money/money.dart';
@@ -34,14 +35,14 @@ class RecurringFormScreen extends ConsumerWidget {
             return item == null
                 ? Scaffold(
                     appBar: AppBar(),
-                    body: const Center(
-                      child: EmptyState(icon: Icons.info_outline_rounded, message: 'This item no longer exists.'),
+                    body: Center(
+                      child: EmptyState(icon: Icons.info_outline_rounded, message: context.tr('This item no longer exists.')),
                     ),
                   )
                 : _RecurringForm(initial: item, kind: item.kind);
           },
           loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (_, _) => Scaffold(appBar: AppBar(), body: const Center(child: Text('Could not load.'))),
+          error: (_, _) => Scaffold(appBar: AppBar(), body: Center(child: Text(context.tr('Could not load.')))),
         );
   }
 }
@@ -98,15 +99,20 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
     // Keep an archived payment method visible when editing an old record.
     final currentMethod = ref.watch(paymentMethodByIdProvider)[_paymentMethodId];
     if (currentMethod != null && !methods.any((m) => m.id == currentMethod.id)) methods.add(currentMethod);
-    final dateFormat = DateFormat.yMMMd();
-    final noun = _isSubscription ? 'subscription' : 'recurring expense';
+    final dateFormat = DateFormat.yMMMd(context.lang);
+    final String title;
+    if (_isSubscription) {
+      title = _initial == null ? context.tr('New subscription') : context.tr('Edit subscription');
+    } else {
+      title = _initial == null ? context.tr('New recurring expense') : context.tr('Edit recurring expense');
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_initial == null ? 'New $noun' : 'Edit $noun'),
+        title: Text(title),
         actions: [
           if (_initial != null)
-            IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline_rounded), onPressed: _delete),
+            IconButton(tooltip: context.tr('Delete'), icon: const Icon(Icons.delete_outline_rounded), onPressed: _delete),
         ],
       ),
       body: Form(
@@ -127,10 +133,10 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                   maxLength: 80,
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
-                    labelText: 'Name',
-                    hintText: _isSubscription ? 'e.g. Netflix' : 'e.g. Rent',
+                    labelText: context.tr('Name'),
+                    hintText: _isSubscription ? context.tr('e.g. Netflix') : context.tr('e.g. Rent'),
                   ),
-                  validator: (v) => (v ?? '').trim().isEmpty ? 'Enter a name' : null,
+                  validator: (v) => (v ?? '').trim().isEmpty ? context.tr('Enter a name') : null,
                 ),
                 const SizedBox(height: 8),
                 MoneyFormField(controller: _amount, currency: currency),
@@ -144,7 +150,7 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                         controller: _interval,
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        decoration: const InputDecoration(labelText: 'Every'),
+                        decoration: InputDecoration(labelText: context.tr('Every')),
                         validator: (v) {
                           final n = int.tryParse(v ?? '');
                           return n == null || n < 1 || n > _maxInterval ? '1–$_maxInterval' : null;
@@ -156,12 +162,12 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                       child: DropdownButtonFormField<Frequency>(
                         initialValue: _frequency,
                         isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Frequency'),
-                        items: const [
-                          DropdownMenuItem(value: Frequency.daily, child: Text('Day(s)')),
-                          DropdownMenuItem(value: Frequency.weekly, child: Text('Week(s)')),
-                          DropdownMenuItem(value: Frequency.monthly, child: Text('Month(s)')),
-                          DropdownMenuItem(value: Frequency.yearly, child: Text('Year(s)')),
+                        decoration: InputDecoration(labelText: context.tr('Frequency')),
+                        items: [
+                          DropdownMenuItem(value: Frequency.daily, child: Text(context.tr('Day(s)'))),
+                          DropdownMenuItem(value: Frequency.weekly, child: Text(context.tr('Week(s)'))),
+                          DropdownMenuItem(value: Frequency.monthly, child: Text(context.tr('Month(s)'))),
+                          DropdownMenuItem(value: Frequency.yearly, child: Text(context.tr('Year(s)'))),
                         ],
                         onChanged: (f) => setState(() => _frequency = f ?? _frequency),
                       ),
@@ -175,8 +181,8 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                   title: Text(dateFormat.format(_anchorDate)),
                   subtitle: Text(
                     _initial == null
-                        ? 'First charge — past dates are recorded as expenses (up to one year)'
-                        : 'Billing date',
+                        ? context.tr('First charge — past dates are recorded as expenses (up to one year)')
+                        : context.tr('Billing date'),
                   ),
                   trailing: const Icon(Icons.edit_calendar_rounded),
                   onTap: () async {
@@ -187,12 +193,12 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_busy_rounded),
-                  title: Text(_endDate == null ? 'No end date' : dateFormat.format(_endDate!)),
-                  subtitle: const Text('Ends (optional)'),
+                  title: Text(_endDate == null ? context.tr('No end date') : dateFormat.format(_endDate!)),
+                  subtitle: Text(context.tr('Ends (optional)')),
                   trailing: _endDate == null
                       ? const Icon(Icons.edit_calendar_rounded)
                       : IconButton(
-                          tooltip: 'Remove end date',
+                          tooltip: context.tr('Remove end date'),
                           icon: const Icon(Icons.close_rounded),
                           onPressed: () => setState(() => _endDate = null),
                         ),
@@ -203,7 +209,7 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                 ),
                 if (_endDate != null && _endDate!.isBefore(_anchorDate))
                   Text(
-                    'The end date must be after the first charge.',
+                    context.tr('The end date must be after the first charge.'),
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 const SizedBox(height: 8),
@@ -211,10 +217,10 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                   key: ValueKey('category-${categories.length}'),
                   initialValue: categories.any((c) => c.id == _categoryId) ? _categoryId : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Category'),
+                  decoration: InputDecoration(labelText: context.tr('Category')),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Uncategorized')),
-                    for (final c in categories) DropdownMenuItem(value: c.id, child: Text(c.name)),
+                    DropdownMenuItem(value: null, child: Text(context.tr('Uncategorized'))),
+                    for (final c in categories) DropdownMenuItem(value: c.id, child: Text(c.label(context))),
                   ],
                   onChanged: (id) => setState(() => _categoryId = id),
                 ),
@@ -223,18 +229,18 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                   key: ValueKey('methods-${methods.length}'),
                   initialValue: methods.any((m) => m.id == _paymentMethodId) ? _paymentMethodId : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Payment method'),
+                  decoration: InputDecoration(labelText: context.tr('Payment method')),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Not specified')),
-                    for (final m in methods) DropdownMenuItem(value: m.id, child: Text(m.name)),
+                    DropdownMenuItem(value: null, child: Text(context.tr('Not specified'))),
+                    for (final m in methods) DropdownMenuItem(value: m.id, child: Text(m.label(context))),
                   ],
                   onChanged: (id) => setState(() => _paymentMethodId = id),
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Active'),
-                  subtitle: const Text('Paused items are not charged'),
+                  title: Text(context.tr('Active')),
+                  subtitle: Text(context.tr('Paused items are not charged')),
                   value: _isActive,
                   onChanged: (v) => setState(() => _isActive = v),
                 ),
@@ -244,13 +250,13 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                   maxLength: 1000,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                  decoration: InputDecoration(labelText: context.tr('Notes (optional)')),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _saving ? null : () => _save(currency),
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Save'),
+                  label: Text(context.tr('Save')),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                 ),
               ],
@@ -295,12 +301,13 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
     );
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
+    final errorText = context.tr('Could not save. Please check the values.');
     try {
       await ref.read(recurringActionsProvider).save(item);
       if (mounted) context.pop();
     } on Object {
       if (mounted) setState(() => _saving = false);
-      messenger.showSnackBar(const SnackBar(content: Text('Could not save. Please check the values.')));
+      messenger.showSnackBar(SnackBar(content: Text(errorText)));
     }
   }
 
@@ -308,11 +315,11 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete?'),
-        content: const Text('Future charges stop. Expenses already recorded are kept.'),
+        title: Text(context.tr('Delete?')),
+        content: Text(context.tr('Future charges stop. Expenses already recorded are kept.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Delete'))),
         ],
       ),
     );

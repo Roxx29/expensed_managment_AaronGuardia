@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/money.dart';
 import '../../../core/theme/app_theme.dart';
@@ -25,19 +26,19 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(dashboardProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Overview')),
+      appBar: AppBar(title: Text(context.tr('Overview'))),
       floatingActionButton: const AddTransactionButton(),
       body: snapshot.when(
         // Keep showing the previous snapshot while data changes recompute it.
         skipLoadingOnReload: true,
         data: (data) => _DashboardBody(data: data),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => const Center(
+        error: (error, _) => Center(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: EmptyState(
               icon: Icons.error_outline_rounded,
-              message: 'Could not load your data. Please restart the app.',
+              message: context.tr('Could not load your data. Please restart the app.'),
             ),
           ),
         ),
@@ -115,7 +116,7 @@ class _BalanceCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Available money',
+              context.tr('Available money'),
               style: theme.textTheme.labelLarge
                   ?.copyWith(color: theme.colorScheme.onPrimaryContainer),
             ),
@@ -136,8 +137,8 @@ class _BalanceCard extends StatelessWidget {
               spacing: 24,
               runSpacing: 8,
               children: [
-                _Metric(label: 'Income this month', value: data.summary.income, color: finance.income),
-                _Metric(label: 'Expenses this month', value: data.summary.expenses, color: finance.expense),
+                _Metric(label: context.tr('Income this month'), value: data.summary.income, color: finance.income),
+                _Metric(label: context.tr('Expenses this month'), value: data.summary.expenses, color: finance.expense),
               ],
             ),
           ],
@@ -177,11 +178,11 @@ class _BudgetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final global = data.budgets.global;
     return SectionCard(
-      title: 'Monthly budget',
+      title: context.tr('Monthly budget'),
       child: global == null
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.savings_outlined,
-              message: 'No monthly budget yet. Set one in Budgets to track your spending.',
+              message: context.tr('No monthly budget yet. Set one in Budgets to track your spending.'),
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,11 +193,11 @@ class _BudgetCard extends StatelessWidget {
                   alignment: WrapAlignment.spaceBetween,
                   spacing: 12,
                   children: [
-                    Text('Spent ${global.spent.format()} of ${global.budgeted.format()}'),
+                    Text(context.tr('Spent {spent} of {budgeted}', {'spent': global.spent.format(), 'budgeted': global.budgeted.format()})),
                     Text(
                       global.remaining.isNegative
-                          ? 'Over by ${(-global.remaining).format()}'
-                          : '${global.remaining.format()} left',
+                          ? context.tr('Over by {amount}', {'amount': (-global.remaining).format()})
+                          : context.tr('{amount} left', {'amount': global.remaining.format()}),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -218,7 +219,7 @@ class _AlertsCard extends ConsumerWidget {
     final finance = FinanceColors.of(context);
     final scheme = Theme.of(context).colorScheme;
     return SectionCard(
-      title: 'Alerts & tips',
+      title: context.tr('Alerts & tips'),
       child: Column(
         children: [
           for (final insight in insights)
@@ -236,7 +237,7 @@ class _AlertsCard extends ConsumerWidget {
                   InsightSeverity.info => scheme.primary,
                 },
               ),
-              title: Text(insightMessage(insight, categories)),
+              title: Text(insightMessage(context, insight, categories)),
             ),
         ],
       ),
@@ -257,11 +258,11 @@ class _TopCategoriesCard extends ConsumerWidget {
     final items = data.summary.expensesByCategory.take(_maxItems).toList();
     final total = data.summary.expenses;
     return SectionCard(
-      title: 'Top spending categories',
+      title: context.tr('Top spending categories'),
       child: items.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.pie_chart_outline_rounded,
-              message: 'No expenses this month yet.',
+              message: context.tr('No expenses this month yet.'),
             )
           : Column(
               children: [
@@ -284,13 +285,13 @@ class _UpcomingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat.MMMd();
+    final dateFormat = DateFormat.MMMd(context.lang);
     return SectionCard(
-      title: 'Upcoming payments',
+      title: context.tr('Upcoming payments'),
       child: charges.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.event_available_rounded,
-              message: 'No subscriptions or bills due in the next 30 days.',
+              message: context.tr('No subscriptions or bills due in the next 30 days.'),
             )
           : Column(
               children: [
@@ -320,14 +321,14 @@ class _RecentTransactionsCard extends ConsumerWidget {
     final recent = ref.watch(recentTransactionsProvider).value ?? const [];
     final categories = ref.watch(categoryByIdProvider);
     return SectionCard(
-      title: 'Recent transactions',
+      title: context.tr('Recent transactions'),
       trailing: recent.isEmpty
           ? null
-          : TextButton(onPressed: () => context.go(Routes.transactions), child: const Text('See all')),
+          : TextButton(onPressed: () => context.go(Routes.transactions), child: Text(context.tr('See all'))),
       child: recent.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.receipt_long_outlined,
-              message: 'Your transactions will appear here.',
+              message: context.tr('Your transactions will appear here.'),
             )
           : Column(
               children: [

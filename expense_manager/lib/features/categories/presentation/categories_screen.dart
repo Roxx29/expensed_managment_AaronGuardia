@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/utils/ids.dart';
 import '../../../domain/entities/entities.dart';
@@ -19,13 +20,15 @@ class CategoriesScreen extends ConsumerWidget {
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
-            title: const Text('Categories & payment methods'),
-            bottom: const TabBar(tabs: [Tab(text: 'Categories'), Tab(text: 'Payment methods')]),
+            title: Text(context.tr('Categories & payment methods')),
+            bottom: TabBar(
+              tabs: [Tab(text: context.tr('Categories')), Tab(text: context.tr('Payment methods'))],
+            ),
           ),
           floatingActionButton: FloatingActionButton.extended(
             heroTag: null,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('New'),
+            label: Text(context.tr('New')),
             onPressed: () => DefaultTabController.of(context).index == 0
                 ? _editCategory(context, ref, null)
                 : _editPaymentMethod(context, ref, null),
@@ -43,19 +46,19 @@ class CategoriesScreen extends ConsumerWidget {
   }
 }
 
-String _kindLabel(CategoryKind kind) => switch (kind) {
-      CategoryKind.expense => 'Expenses',
-      CategoryKind.income => 'Income',
-      CategoryKind.both => 'Expenses & income',
+String _kindLabel(BuildContext context, CategoryKind kind) => switch (kind) {
+      CategoryKind.expense => context.tr('Expenses'),
+      CategoryKind.income => context.tr('Income'),
+      CategoryKind.both => context.tr('Expenses & income'),
     };
 
-String _methodTypeLabel(PaymentMethodType type) => switch (type) {
-      PaymentMethodType.cash => 'Cash',
-      PaymentMethodType.debitCard => 'Debit card',
-      PaymentMethodType.creditCard => 'Credit card',
-      PaymentMethodType.bankTransfer => 'Bank transfer',
-      PaymentMethodType.digitalWallet => 'Digital wallet',
-      PaymentMethodType.other => 'Other',
+String _methodTypeLabel(BuildContext context, PaymentMethodType type) => switch (type) {
+      PaymentMethodType.cash => context.tr('Cash'),
+      PaymentMethodType.debitCard => context.tr('Debit card'),
+      PaymentMethodType.creditCard => context.tr('Credit card'),
+      PaymentMethodType.bankTransfer => context.tr('Bank transfer'),
+      PaymentMethodType.digitalWallet => context.tr('Digital wallet'),
+      PaymentMethodType.other => context.tr('Other'),
     };
 
 IconData _methodIcon(PaymentMethodType type) => switch (type) {
@@ -70,13 +73,13 @@ Future<bool> _confirmArchive(BuildContext context, String name) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Archive "$name"?'),
-        content: const Text(
-          'It will no longer be offered for new transactions. Existing transactions keep it.',
+        title: Text(context.tr('Archive "{name}"?', {'name': name})),
+        content: Text(
+          context.tr('It will no longer be offered for new transactions. Existing transactions keep it.'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Archive')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Archive'))),
         ],
       ),
     ) ??
@@ -97,14 +100,14 @@ class _CategoryList extends ConsumerWidget {
               backgroundColor: Color(c.color).withValues(alpha: 0.15),
               child: Icon(iconForKey(c.iconKey), color: Color(c.color)),
             ),
-            title: Text(c.name),
-            subtitle: Text(_kindLabel(c.kind)),
+            title: Text(c.label(context)),
+            subtitle: Text(_kindLabel(context, c.kind)),
             onTap: () => _editCategory(context, ref, c),
             trailing: IconButton(
-              tooltip: 'Archive',
+              tooltip: context.tr('Archive'),
               icon: const Icon(Icons.archive_outlined),
               onPressed: () async {
-                if (await _confirmArchive(context, c.name)) {
+                if (await _confirmArchive(context, c.label(context))) {
                   await ref.read(catalogActionsProvider).archiveCategory(c.id);
                 }
               },
@@ -127,14 +130,14 @@ class _PaymentMethodList extends ConsumerWidget {
         for (final m in methods)
           ListTile(
             leading: Icon(_methodIcon(m.type)),
-            title: Text(m.name),
-            subtitle: Text(_methodTypeLabel(m.type)),
+            title: Text(m.label(context)),
+            subtitle: Text(_methodTypeLabel(context, m.type)),
             onTap: () => _editPaymentMethod(context, ref, m),
             trailing: IconButton(
-              tooltip: 'Archive',
+              tooltip: context.tr('Archive'),
               icon: const Icon(Icons.archive_outlined),
               onPressed: () async {
-                if (await _confirmArchive(context, m.name)) {
+                if (await _confirmArchive(context, m.label(context))) {
                   await ref.read(catalogActionsProvider).archivePaymentMethod(m.id);
                 }
               },
@@ -172,7 +175,8 @@ class _CategoryDialog extends StatefulWidget {
 
 class _CategoryDialogState extends State<_CategoryDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final _name = TextEditingController(text: widget.existing?.name ?? '');
+  // Late: first read in build(), where context can look up the locale.
+  late final _name = TextEditingController(text: widget.existing?.label(context) ?? '');
   late CategoryKind _kind = widget.existing?.kind ?? CategoryKind.expense;
   late String _iconKey = widget.existing?.iconKey ?? 'other';
   late int _color = widget.existing?.color ?? categoryColors.first;
@@ -186,11 +190,13 @@ class _CategoryDialogState extends State<_CategoryDialog> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final e = widget.existing;
+    final name = _name.text.trim();
     Navigator.pop(
       context,
       FinanceCategory(
         id: e?.id ?? newId(),
-        name: _name.text.trim(),
+        // Unchanged translated default name: keep the stored English name.
+        name: e != null && name == e.label(context) ? e.name : name,
         iconKey: _iconKey,
         color: _color,
         kind: _kind,
@@ -205,7 +211,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: Text(widget.existing == null ? 'New category' : 'Edit category'),
+      title: Text(widget.existing == null ? context.tr('New category') : context.tr('Edit category')),
       scrollable: true,
       content: Form(
         key: _formKey,
@@ -218,22 +224,22 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               autofocus: widget.existing == null,
               maxLength: 50,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name'),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Enter a name' : null,
+              decoration: InputDecoration(labelText: context.tr('Name')),
+              validator: (v) => (v ?? '').trim().isEmpty ? context.tr('Enter a name') : null,
             ),
             const SizedBox(height: 8),
             SegmentedButton<CategoryKind>(
               showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: CategoryKind.expense, label: Text('Expense')),
-                ButtonSegment(value: CategoryKind.income, label: Text('Income')),
-                ButtonSegment(value: CategoryKind.both, label: Text('Both')),
+              segments: [
+                ButtonSegment(value: CategoryKind.expense, label: Text(context.tr('Expense'))),
+                ButtonSegment(value: CategoryKind.income, label: Text(context.tr('Income'))),
+                ButtonSegment(value: CategoryKind.both, label: Text(context.tr('Both'))),
               ],
               selected: {_kind},
               onSelectionChanged: (s) => setState(() => _kind = s.first),
             ),
             const SizedBox(height: 16),
-            Text('Icon', style: Theme.of(context).textTheme.labelLarge),
+            Text(context.tr('Icon'), style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
               spacing: 4,
@@ -252,7 +258,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('Color', style: Theme.of(context).textTheme.labelLarge),
+            Text(context.tr('Color'), style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -262,7 +268,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                   Semantics(
                     button: true,
                     selected: color == _color,
-                    label: 'Color',
+                    label: context.tr('Color'),
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => setState(() => _color = color),
@@ -281,8 +287,8 @@ class _CategoryDialogState extends State<_CategoryDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _submit, child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
+        FilledButton(onPressed: _submit, child: Text(context.tr('Save'))),
       ],
     );
   }
@@ -299,7 +305,8 @@ class _PaymentMethodDialog extends StatefulWidget {
 
 class _PaymentMethodDialogState extends State<_PaymentMethodDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final _name = TextEditingController(text: widget.existing?.name ?? '');
+  // Late: first read in build(), where context can look up the locale.
+  late final _name = TextEditingController(text: widget.existing?.label(context) ?? '');
   late PaymentMethodType _type = widget.existing?.type ?? PaymentMethodType.debitCard;
 
   @override
@@ -311,11 +318,13 @@ class _PaymentMethodDialogState extends State<_PaymentMethodDialog> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final e = widget.existing;
+    final name = _name.text.trim();
     Navigator.pop(
       context,
       PaymentMethod(
         id: e?.id ?? newId(),
-        name: _name.text.trim(),
+        // Unchanged translated default name: keep the stored English name.
+        name: e != null && name == e.label(context) ? e.name : name,
         type: _type,
         isDefault: e?.isDefault ?? false,
       ),
@@ -325,7 +334,7 @@ class _PaymentMethodDialogState extends State<_PaymentMethodDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing == null ? 'New payment method' : 'Edit payment method'),
+      title: Text(widget.existing == null ? context.tr('New payment method') : context.tr('Edit payment method')),
       content: Form(
         key: _formKey,
         child: Column(
@@ -335,17 +344,17 @@ class _PaymentMethodDialogState extends State<_PaymentMethodDialog> {
               controller: _name,
               autofocus: widget.existing == null,
               maxLength: 50,
-              decoration: const InputDecoration(labelText: 'Name', hintText: 'e.g. Visa ending 1234'),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Enter a name' : null,
+              decoration: InputDecoration(labelText: context.tr('Name'), hintText: context.tr('e.g. Visa ending 1234')),
+              validator: (v) => (v ?? '').trim().isEmpty ? context.tr('Enter a name') : null,
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<PaymentMethodType>(
               initialValue: _type,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Type'),
+              decoration: InputDecoration(labelText: context.tr('Type')),
               items: [
                 for (final t in PaymentMethodType.values)
-                  DropdownMenuItem(value: t, child: Text(_methodTypeLabel(t))),
+                  DropdownMenuItem(value: t, child: Text(_methodTypeLabel(context, t))),
               ],
               onChanged: (t) => setState(() => _type = t ?? _type),
             ),
@@ -353,8 +362,8 @@ class _PaymentMethodDialogState extends State<_PaymentMethodDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _submit, child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
+        FilledButton(onPressed: _submit, child: Text(context.tr('Save'))),
       ],
     );
   }

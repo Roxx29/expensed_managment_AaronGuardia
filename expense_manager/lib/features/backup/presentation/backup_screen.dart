@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../data/backup/backup_codec.dart';
 import '../../../data/database/app_database.dart';
@@ -9,20 +10,21 @@ import '../../../domain/backup/backup_policy.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../application/backup_providers.dart';
 
-String _errorMessage(Object error) => switch (error) {
-      BackupException(error: BackupError.tooLarge) => 'The file is too large to be a backup.',
-      BackupException(error: BackupError.notABackup) => 'This file is not an Expense Manager backup.',
+String _errorMessage(BuildContext context, Object error) => switch (error) {
+      BackupException(error: BackupError.tooLarge) => context.tr('The file is too large to be a backup.'),
+      BackupException(error: BackupError.notABackup) => context.tr('This file is not an Expense Manager backup.'),
       BackupException(error: BackupError.newerVersion) =>
-        'This backup was made with a newer version of the app. Update the app first.',
-      BackupException(error: BackupError.corrupted) => 'The backup file is damaged or incomplete.',
-      BackupException(error: BackupError.invalidData) => 'The backup contains invalid data. Nothing was changed.',
-      _ => 'Something went wrong. Nothing was changed.',
+        context.tr('This backup was made with a newer version of the app. Update the app first.'),
+      BackupException(error: BackupError.corrupted) => context.tr('The backup file is damaged or incomplete.'),
+      BackupException(error: BackupError.invalidData) =>
+        context.tr('The backup contains invalid data. Nothing was changed.'),
+      _ => context.tr('Something went wrong. Nothing was changed.'),
     };
 
-String _originLabel(String origin) => switch (origin) {
-      'manual' => 'Manual',
-      'automatic' => 'Automatic',
-      'safety' => 'Before restore',
+String _originLabel(BuildContext context, String origin) => switch (origin) {
+      'manual' => context.tr('Manual'),
+      'automatic' => context.tr('Automatic'),
+      'safety' => context.tr('Before restore'),
       _ => origin,
     };
 
@@ -48,7 +50,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       final message = await task();
       if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
     } on Object catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(_errorMessage(e))));
+      // The error text needs a live context; skip it if the screen was closed.
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(_errorMessage(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -64,14 +67,16 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Restore this backup?'),
+          title: Text(context.tr('Restore this backup?')),
           content: Text(
-            'All current data will be replaced with the backup from $when. '
-            'A copy of your current data is saved first, so you can go back.',
+            context.tr(
+              'All current data will be replaced with the backup from {when}. A copy of your current data is saved first, so you can go back.',
+              {'when': when},
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restore')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Restore'))),
           ],
         ),
       ) ??
@@ -82,11 +87,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final actions = ref.read(backupActionsProvider);
     final frequency = ref.watch(backupFrequencyProvider).value ?? BackupFrequency.off;
     final backups = ref.watch(backupsProvider).value ?? const <BackupRecord>[];
-    final dateFormat = DateFormat.yMMMd().add_jm();
+    final dateFormat = DateFormat.yMMMd(context.lang).add_jm();
+    // Resolved now: the snackbar texts are used after awaits, when the screen may be gone.
+    final createdText = context.tr('Backup created');
+    final restoredText = context.tr('Backup restored');
+    final deletedText = context.tr('Backup deleted');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Backup & restore'),
+        title: Text(context.tr('Backup & restore')),
         bottom: _busy ? const PreferredSize(preferredSize: Size.fromHeight(4), child: LinearProgressIndicator()) : null,
       ),
       body: Align(
@@ -97,24 +106,27 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               SectionCard(
-                title: 'Automatic backup',
+                title: context.tr('Automatic backup'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SegmentedButton<BackupFrequency>(
                       showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(value: BackupFrequency.off, label: Text('Off')),
-                        ButtonSegment(value: BackupFrequency.daily, label: Text('Daily')),
-                        ButtonSegment(value: BackupFrequency.weekly, label: Text('Weekly')),
-                        ButtonSegment(value: BackupFrequency.monthly, label: Text('Monthly')),
+                      segments: [
+                        ButtonSegment(value: BackupFrequency.off, label: Text(context.tr('Off'))),
+                        ButtonSegment(value: BackupFrequency.daily, label: Text(context.tr('Daily'))),
+                        ButtonSegment(value: BackupFrequency.weekly, label: Text(context.tr('Weekly'))),
+                        ButtonSegment(value: BackupFrequency.monthly, label: Text(context.tr('Monthly'))),
                       ],
                       selected: {frequency},
                       onSelectionChanged: (s) => actions.setFrequency(s.first),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Checked when you open the app. The last ${BackupPolicy.keepAutomatic} automatic backups are kept.',
+                      context.tr(
+                        'Checked when you open the app. The last {count} automatic backups are kept.',
+                        {'count': BackupPolicy.keepAutomatic},
+                      ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -128,28 +140,28 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   FilledButton.icon(
                     onPressed: _busy ? null : () => _run(() async {
                       await actions.backupNow();
-                      return 'Backup created';
+                      return createdText;
                     }),
                     icon: const Icon(Icons.backup_rounded),
-                    label: const Text('Back up now'),
+                    label: Text(context.tr('Back up now')),
                   ),
                   OutlinedButton.icon(
                     onPressed: _busy
                         ? null
                         : () => _run(() async {
-                              if (!await _confirmRestore('the file you choose')) return null;
-                              return await actions.restoreFromFile() ? 'Backup restored' : null;
+                              if (!await _confirmRestore(context.tr('the file you choose'))) return null;
+                              return await actions.restoreFromFile() ? restoredText : null;
                             }),
                     icon: const Icon(Icons.file_open_rounded),
-                    label: const Text('Restore from file'),
+                    label: Text(context.tr('Restore from file')),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               SectionCard(
-                title: 'Backups on this device',
+                title: context.tr('Backups on this device'),
                 child: backups.isEmpty
-                    ? const EmptyState(icon: Icons.cloud_off_rounded, message: 'No backups yet.')
+                    ? EmptyState(icon: Icons.cloud_off_rounded, message: context.tr('No backups yet.'))
                     : Column(
                         children: [
                           for (final b in backups)
@@ -160,28 +172,28 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                 b.origin == 'automatic' ? Icons.schedule_rounded : Icons.save_rounded,
                               ),
                               title: Text(dateFormat.format(b.createdAt)),
-                              subtitle: Text('${_originLabel(b.origin)} · ${_size(b.sizeBytes)}'),
+                              subtitle: Text('${_originLabel(context, b.origin)} · ${_size(b.sizeBytes)}'),
                               trailing: PopupMenuButton<String>(
-                                tooltip: 'Options',
+                                tooltip: context.tr('Options'),
                                 enabled: !_busy,
                                 onSelected: (action) => _run(() async {
                                   switch (action) {
                                     case 'restore':
                                       if (!await _confirmRestore(dateFormat.format(b.createdAt))) return null;
                                       await actions.restore(b);
-                                      return 'Backup restored';
+                                      return restoredText;
                                     case 'export':
                                       await actions.export(b, origin: _shareOrigin());
                                       return null;
                                     default:
                                       await actions.delete(b);
-                                      return 'Backup deleted';
+                                      return deletedText;
                                   }
                                 }),
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(value: 'restore', child: Text('Restore')),
-                                  PopupMenuItem(value: 'export', child: Text('Export / share')),
-                                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                itemBuilder: (_) => [
+                                  PopupMenuItem(value: 'restore', child: Text(context.tr('Restore'))),
+                                  PopupMenuItem(value: 'export', child: Text(context.tr('Export / share'))),
+                                  PopupMenuItem(value: 'delete', child: Text(context.tr('Delete'))),
                                 ],
                               ),
                             ),
@@ -189,10 +201,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       ),
               ),
               const SizedBox(height: 12),
-              const EmptyState(
+              EmptyState(
                 icon: Icons.lock_outline_rounded,
-                message: 'Backup files are not encrypted. Keep exported copies in a private place. '
-                    'Export a backup before changing or resetting your phone.',
+                message: context.tr(
+                  'Backup files are not encrypted. Keep exported copies in a private place. Export a backup before changing or resetting your phone.',
+                ),
               ),
             ],
           ),

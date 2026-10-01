@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/l10n/l10n.dart';
 import '../core/layout/breakpoints.dart';
 
 class _Destination {
@@ -43,7 +44,7 @@ class AdaptiveShell extends StatelessWidget {
           onDestinationSelected: _onSelect,
           destinations: [
             for (final d in _destinations)
-              NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
+              NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: context.tr(d.label)),
           ],
         ),
       );
@@ -63,7 +64,7 @@ class AdaptiveShell extends StatelessWidget {
                   NavigationRailDestination(
                     icon: Icon(d.icon),
                     selectedIcon: Icon(d.selectedIcon),
-                    label: Text(d.label),
+                    label: Text(context.tr(d.label)),
                   ),
               ],
             ),

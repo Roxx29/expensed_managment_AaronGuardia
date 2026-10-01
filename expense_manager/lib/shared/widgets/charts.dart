@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/money/money.dart';
 import '../../domain/entities/entities.dart';
 import 'common_widgets.dart';
@@ -46,7 +47,9 @@ class MoneyBarChart extends StatelessWidget {
         Text(
           selected != null
               ? '${longLabels[selected]}: ${values[selected].format()}'
-              : (maxMinor == 0 ? 'No data' : 'Max ${values.firstWhere((v) => v.minor == maxMinor).format()}'),
+              : (maxMinor == 0
+                  ? context.tr('No data')
+                  : context.tr('Max {amount}', {'amount': values.firstWhere((v) => v.minor == maxMinor).format()})),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 12),
@@ -152,7 +155,7 @@ class CategoryAmountRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(category?.name ?? 'Uncategorized', overflow: TextOverflow.ellipsis),
+                Text(category?.label(context) ?? context.tr('Uncategorized'), overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: share.isFinite ? share.clamp(0.0, 1.0).toDouble() : 0,

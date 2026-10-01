@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/l10n/l10n.dart';
 import '../core/layout/breakpoints.dart';
 import 'routes.dart';
 
@@ -20,7 +21,7 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
+      appBar: AppBar(title: Text(context.tr('More'))),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -30,7 +31,7 @@ class MoreScreen extends StatelessWidget {
               for (final (icon, label, route) in _entries)
                 ListTile(
                   leading: Icon(icon),
-                  title: Text(label),
+                  title: Text(context.tr(label)),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.go(route),
                 ),

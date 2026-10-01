@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/l10n/l10n.dart';
 import '../domain/entities/entities.dart';
 import '../features/backup/presentation/backup_screen.dart';
 import '../features/budgets/presentation/budgets_screen.dart';
@@ -97,7 +98,7 @@ GoRouter _buildRouter() => GoRouter(
       builder: (_, state) => RecurringFormScreen(itemId: state.pathParameters['id']),
     ),
   ],
-  errorBuilder: (context, state) => const Scaffold(
-    body: Center(child: Text('Page not found')),
+  errorBuilder: (context, state) => Scaffold(
+    body: Center(child: Text(context.tr('Page not found'))),
   ),
 );

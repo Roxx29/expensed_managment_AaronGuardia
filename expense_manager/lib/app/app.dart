@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/l10n/l10n.dart';
 import '../core/theme/app_theme.dart';
 import '../features/backup/application/backup_providers.dart';
 import '../features/recurring/application/recurring_providers.dart';
@@ -24,6 +26,10 @@ class ExpenseManagerApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       themeAnimationDuration: const Duration(milliseconds: 250),
+      // null = device language (Spanish devices get Spanish, others English).
+      locale: ref.watch(languageProvider).value,
+      supportedLocales: supportedLocales,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: ref.watch(routerProvider),
     );
   }

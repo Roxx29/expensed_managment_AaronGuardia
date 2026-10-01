@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/currency.dart';
 import '../../../core/money/money.dart';
@@ -45,18 +46,18 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transactions'),
+        title: Text(context.tr('Transactions')),
         actions: [
           PopupMenuButton<TransactionSort>(
-            tooltip: 'Sort',
+            tooltip: context.tr('Sort'),
             icon: const Icon(Icons.sort_rounded),
             initialValue: filter.sort,
             onSelected: (sort) => _setFilter(_filter.copyWith(sort: sort)),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: TransactionSort.newest, child: Text('Newest first')),
-              PopupMenuItem(value: TransactionSort.oldest, child: Text('Oldest first')),
-              PopupMenuItem(value: TransactionSort.highest, child: Text('Highest amount')),
-              PopupMenuItem(value: TransactionSort.lowest, child: Text('Lowest amount')),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: TransactionSort.newest, child: Text(context.tr('Newest first'))),
+              PopupMenuItem(value: TransactionSort.oldest, child: Text(context.tr('Oldest first'))),
+              PopupMenuItem(value: TransactionSort.highest, child: Text(context.tr('Highest amount'))),
+              PopupMenuItem(value: TransactionSort.lowest, child: Text(context.tr('Lowest amount'))),
             ],
           ),
         ],
@@ -72,13 +73,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: SearchBar(
                   controller: _search,
-                  hintText: 'Search description, notes, category…',
+                  hintText: context.tr('Search description, notes, category…'),
                   leading: const Icon(Icons.search_rounded),
                   elevation: const WidgetStatePropertyAll(0),
                   trailing: [
                     if (filter.query.isNotEmpty)
                       IconButton(
-                        tooltip: 'Clear search',
+                        tooltip: context.tr('Clear search'),
                         icon: const Icon(Icons.close_rounded),
                         onPressed: () {
                           _search.clear();
@@ -97,10 +98,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 child: results.when(
                   skipLoadingOnReload: true,
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, _) => const Center(
+                  error: (_, _) => Center(
                     child: EmptyState(
                       icon: Icons.error_outline_rounded,
-                      message: 'Could not load transactions.',
+                      message: context.tr('Could not load transactions.'),
                     ),
                   ),
                   data: (list) => list.isEmpty
@@ -109,8 +110,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                           child: EmptyState(
                             icon: hasAny ? Icons.search_off_rounded : Icons.receipt_long_outlined,
                             message: hasAny
-                                ? 'No transactions match these filters.'
-                                : 'No transactions yet. Tap Add to record your first expense or income.',
+                                ? context.tr('No transactions match these filters.')
+                                : context.tr('No transactions yet. Tap Add to record your first expense or income.'),
                           ),
                         )
                       : _TransactionList(transactions: list, groupByDay: _isDateSort(filter.sort)),
@@ -150,7 +151,7 @@ class _TransactionListState extends ConsumerState<_TransactionList> {
     final headerStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         );
-    final dayFormat = DateFormat.yMMMEd();
+    final dayFormat = DateFormat.yMMMEd(context.lang);
 
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 96), // room for the FAB
@@ -198,9 +199,9 @@ class _TransactionListState extends ConsumerState<_TransactionList> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
-        content: const Text('Transaction deleted'),
+        content: Text(context.tr('Transaction deleted')),
         action: SnackBarAction(
-          label: 'Undo',
+          label: context.tr('Undo'),
           onPressed: () {
             actions.restore(tx);
             if (mounted) setState(() => _hidden.remove(tx.id));
@@ -222,7 +223,7 @@ class _FilterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(categoryByIdProvider);
     final currency = ref.watch(currencyProvider);
-    final dateFormat = DateFormat.MMMd();
+    final dateFormat = DateFormat.MMMd(context.lang);
 
     void toggleType(TransactionType type) {
       final types = {...filter.types};
@@ -249,17 +250,17 @@ class _FilterBar extends ConsumerWidget {
         spacing: 8,
         children: [
           FilterChip(
-            label: const Text('Expenses'),
+            label: Text(context.tr('Expenses')),
             selected: filter.types.contains(TransactionType.expense),
             onSelected: (_) => toggleType(TransactionType.expense),
           ),
           FilterChip(
-            label: const Text('Income'),
+            label: Text(context.tr('Income')),
             selected: filter.types.contains(TransactionType.income),
             onSelected: (_) => toggleType(TransactionType.income),
           ),
           FilterChip(
-            label: Text(categories[filter.categoryId]?.name ?? 'Category'),
+            label: Text(categories[filter.categoryId]?.label(context) ?? context.tr('Category')),
             selected: filter.categoryId != null,
             onSelected: (_) async {
               final picked = await _pickCategory(context, categories.values.toList());
@@ -270,7 +271,7 @@ class _FilterBar extends ConsumerWidget {
             },
           ),
           FilterChip(
-            label: Text(dateLabel ?? 'Date'),
+            label: Text(dateLabel ?? context.tr('Date')),
             selected: dateLabel != null,
             onSelected: (_) async {
               final now = DateTime.now();
@@ -294,7 +295,7 @@ class _FilterBar extends ConsumerWidget {
             },
           ),
           FilterChip(
-            label: Text(amountLabel() ?? 'Amount'),
+            label: Text(amountLabel() ?? context.tr('Amount')),
             selected: amountLabel() != null,
             onSelected: (_) async {
               final result = await showDialog<(Money?, Money?)>(
@@ -309,7 +310,7 @@ class _FilterBar extends ConsumerWidget {
           if (filter.isActive)
             ActionChip(
               avatar: const Icon(Icons.filter_alt_off_rounded, size: 18),
-              label: const Text('Clear'),
+              label: Text(context.tr('Clear')),
               onPressed: onClear,
             ),
         ],
@@ -333,13 +334,13 @@ class _FilterBar extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.clear_all_rounded),
-              title: const Text('Any category'),
+              title: Text(context.tr('Any category')),
               onTap: () => Navigator.pop(context, ''),
             ),
             for (final c in visible)
               ListTile(
                 leading: Icon(iconForKey(c.iconKey), color: Color(c.color)),
-                title: Text(c.name),
+                title: Text(c.label(context)),
                 onTap: () => Navigator.pop(context, c.id),
               ),
           ],
@@ -378,11 +379,11 @@ class _AmountRangeDialogState extends State<_AmountRangeDialog> {
   void _apply() {
     final min = _parse(_min), max = _parse(_max);
     if ((_min.text.trim().isNotEmpty && min == null) || (_max.text.trim().isNotEmpty && max == null)) {
-      setState(() => _error = 'Enter valid amounts');
+      setState(() => _error = context.tr('Enter valid amounts'));
       return;
     }
     if (min != null && max != null && min > max) {
-      setState(() => _error = 'Minimum is greater than maximum');
+      setState(() => _error = context.tr('Minimum is greater than maximum'));
       return;
     }
     Navigator.pop(context, (min, max));
@@ -392,13 +393,13 @@ class _AmountRangeDialogState extends State<_AmountRangeDialog> {
   Widget build(BuildContext context) {
     const keyboard = TextInputType.numberWithOptions(decimal: true);
     return AlertDialog(
-      title: const Text('Amount range'),
+      title: Text(context.tr('Amount range')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(controller: _min, keyboardType: keyboard, decoration: const InputDecoration(labelText: 'Minimum')),
+          TextField(controller: _min, keyboardType: keyboard, decoration: InputDecoration(labelText: context.tr('Minimum'))),
           const SizedBox(height: 12),
-          TextField(controller: _max, keyboardType: keyboard, decoration: const InputDecoration(labelText: 'Maximum')),
+          TextField(controller: _max, keyboardType: keyboard, decoration: InputDecoration(labelText: context.tr('Maximum'))),
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -406,8 +407,8 @@ class _AmountRangeDialogState extends State<_AmountRangeDialog> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, (null, null)), child: const Text('Clear')),
-        FilledButton(onPressed: _apply, child: const Text('Apply')),
+        TextButton(onPressed: () => Navigator.pop(context, (null, null)), child: Text(context.tr('Clear'))),
+        FilledButton(onPressed: _apply, child: Text(context.tr('Apply'))),
       ],
     );
   }

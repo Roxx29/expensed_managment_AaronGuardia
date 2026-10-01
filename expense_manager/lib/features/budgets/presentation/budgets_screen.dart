@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/money.dart';
 import '../../../core/theme/app_theme.dart';
@@ -22,7 +23,7 @@ class BudgetsScreen extends ConsumerWidget {
     final monthNotifier = ref.read(budgetMonthProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Budgets')),
+      appBar: AppBar(title: Text(context.tr('Budgets'))),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -33,19 +34,19 @@ class BudgetsScreen extends ConsumerWidget {
               Row(
                 children: [
                   IconButton(
-                    tooltip: 'Previous month',
+                    tooltip: context.tr('Previous month'),
                     onPressed: monthNotifier.previous,
                     icon: const Icon(Icons.chevron_left_rounded),
                   ),
                   Expanded(
                     child: Text(
-                      DateFormat.yMMMM().format(month.start),
+                      DateFormat.yMMMM(context.lang).format(month.start),
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Next month',
+                    tooltip: context.tr('Next month'),
                     onPressed: monthNotifier.next,
                     icon: const Icon(Icons.chevron_right_rounded),
                   ),
@@ -55,8 +56,8 @@ class BudgetsScreen extends ConsumerWidget {
               ...report.when<List<Widget>>(
                 skipLoadingOnReload: true,
                 loading: () => const [Center(child: CircularProgressIndicator())],
-                error: (_, _) => const [
-                  EmptyState(icon: Icons.error_outline_rounded, message: 'Could not load budgets.'),
+                error: (_, _) => [
+                  EmptyState(icon: Icons.error_outline_rounded, message: context.tr('Could not load budgets.')),
                 ],
                 data: (r) => [
                   _GlobalBudgetCard(report: r),
@@ -64,7 +65,7 @@ class BudgetsScreen extends ConsumerWidget {
                   _CategoryBudgetsCard(report: r),
                   const SizedBox(height: 12),
                   Text(
-                    'Changes apply from this month onwards. Earlier months keep their budgets.',
+                    context.tr('Changes apply from this month onwards. Earlier months keep their budgets.'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -88,8 +89,8 @@ class _BudgetFigures extends StatelessWidget {
     final p = progress;
     final percent = p.ratio.isFinite ? '${(p.ratio * 100).round()}%' : '—';
     final remainingText = p.remaining.isNegative
-        ? 'Over by ${(-p.remaining).format()}'
-        : 'Remaining ${p.remaining.format()}';
+        ? context.tr('Over by {amount}', {'amount': (-p.remaining).format()})
+        : context.tr('Remaining {amount}', {'amount': p.remaining.format()});
     final statusColor = switch (p.status) {
       BudgetStatus.onTrack => null,
       BudgetStatus.nearLimit => FinanceColors.of(context).warning,
@@ -104,8 +105,8 @@ class _BudgetFigures extends StatelessWidget {
           spacing: 16,
           runSpacing: 4,
           children: [
-            Text('Budget ${p.budgeted.format()}'),
-            Text('Spent ${p.spent.format()} ($percent)'),
+            Text(context.tr('Budget {amount}', {'amount': p.budgeted.format()})),
+            Text(context.tr('Spent {amount} ({percent})', {'amount': p.spent.format(), 'percent': percent})),
             Text(remainingText, style: TextStyle(fontWeight: FontWeight.w600, color: statusColor)),
           ],
         ),
@@ -128,36 +129,36 @@ class _GlobalBudgetCard extends ConsumerWidget {
     Future<void> edit() async {
       final amount = await showMoneyDialog(
         context,
-        title: 'Monthly budget',
+        title: context.tr('Monthly budget'),
         currency: currency,
         initial: global?.budgeted,
-        message: 'How much do you want to spend in total each month?',
+        message: context.tr('How much do you want to spend in total each month?'),
       );
       if (amount != null) await actions.setBudget(amount: amount);
     }
 
     return SectionCard(
-      title: 'Monthly budget',
+      title: context.tr('Monthly budget'),
       trailing: global == null
           ? null
           : PopupMenuButton<String>(
-              tooltip: 'Options',
+              tooltip: context.tr('Options'),
               onSelected: (v) => v == 'edit' ? edit() : actions.removeBudget(),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'edit', child: Text('Change amount')),
-                PopupMenuItem(value: 'remove', child: Text('Remove')),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'edit', child: Text(context.tr('Change amount'))),
+                PopupMenuItem(value: 'remove', child: Text(context.tr('Remove'))),
               ],
             ),
       child: global == null
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const EmptyState(
+                EmptyState(
                   icon: Icons.savings_outlined,
-                  message: 'Set a spending limit for the whole month.',
+                  message: context.tr('Set a spending limit for the whole month.'),
                 ),
                 const SizedBox(height: 8),
-                FilledButton.tonal(onPressed: edit, child: const Text('Set monthly budget')),
+                FilledButton.tonal(onPressed: edit, child: Text(context.tr('Set monthly budget'))),
               ],
             )
           : Column(
@@ -168,9 +169,11 @@ class _GlobalBudgetCard extends ConsumerWidget {
                   const Divider(height: 24),
                   Text(
                     unallocated.isNegative
-                        ? 'Category budgets exceed the monthly budget by ${(-unallocated).format()}.'
-                        : 'Allocated to categories: ${(report.allocated ?? Money.zero(currency)).format()} · '
-                            'Unallocated: ${unallocated.format()}',
+                        ? context.tr('Category budgets exceed the monthly budget by {amount}.', {'amount': (-unallocated).format()})
+                        : context.tr('Allocated to categories: {allocated} · Unallocated: {unallocated}', {
+                            'allocated': (report.allocated ?? Money.zero(currency)).format(),
+                            'unallocated': unallocated.format(),
+                          }),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -196,7 +199,7 @@ class _CategoryBudgetsCard extends ConsumerWidget {
     Future<void> edit(FinanceCategory category, Money? current) async {
       final amount = await showMoneyDialog(
         context,
-        title: '${category.name} budget',
+        title: context.tr('{name} budget', {'name': category.label(context)}),
         currency: currency,
         initial: current,
       );
@@ -219,7 +222,7 @@ class _CategoryBudgetsCard extends ConsumerWidget {
               for (final c in available)
                 ListTile(
                   leading: Icon(iconForKey(c.iconKey), color: Color(c.color)),
-                  title: Text(c.name),
+                  title: Text(c.label(context)),
                   onTap: () => Navigator.pop(context, c),
                 ),
             ],
@@ -230,12 +233,12 @@ class _CategoryBudgetsCard extends ConsumerWidget {
     }
 
     return SectionCard(
-      title: 'Category budgets',
-      trailing: TextButton.icon(onPressed: add, icon: const Icon(Icons.add_rounded), label: const Text('Add')),
+      title: context.tr('Category budgets'),
+      trailing: TextButton.icon(onPressed: add, icon: const Icon(Icons.add_rounded), label: Text(context.tr('Add'))),
       child: entries.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.donut_small_outlined,
-              message: 'Allocate money to categories like Food or Gas to track them separately.',
+              message: context.tr('Allocate money to categories like Food or Gas to track them separately.'),
             )
           : Column(
               children: [
@@ -251,16 +254,16 @@ class _CategoryBudgetsCard extends ConsumerWidget {
                               Icon(iconForKey(category.iconKey), color: Color(category.color), size: 20),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(category.name, style: Theme.of(context).textTheme.titleSmall),
+                                child: Text(category.label(context), style: Theme.of(context).textTheme.titleSmall),
                               ),
                               PopupMenuButton<String>(
-                                tooltip: 'Options',
+                                tooltip: context.tr('Options'),
                                 onSelected: (v) => v == 'edit'
                                     ? edit(category, e.value.budgeted)
                                     : actions.removeBudget(categoryId: category.id),
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(value: 'edit', child: Text('Change amount')),
-                                  PopupMenuItem(value: 'remove', child: Text('Remove')),
+                                itemBuilder: (_) => [
+                                  PopupMenuItem(value: 'edit', child: Text(context.tr('Change amount'))),
+                                  PopupMenuItem(value: 'remove', child: Text(context.tr('Remove'))),
                                 ],
                               ),
                             ],

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/finance/recurrence.dart';
@@ -12,22 +13,22 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../application/recurring_providers.dart';
 
-String frequencyLabel(RecurrenceRule rule) {
+String frequencyLabel(BuildContext context, RecurrenceRule rule) {
   if (rule.interval == 1) {
     return switch (rule.frequency) {
-      Frequency.daily => 'Daily',
-      Frequency.weekly => 'Weekly',
-      Frequency.monthly => 'Monthly',
-      Frequency.yearly => 'Yearly',
+      Frequency.daily => context.tr('Daily'),
+      Frequency.weekly => context.tr('Weekly'),
+      Frequency.monthly => context.tr('Monthly'),
+      Frequency.yearly => context.tr('Yearly'),
     };
   }
-  final unit = switch (rule.frequency) {
-    Frequency.daily => 'days',
-    Frequency.weekly => 'weeks',
-    Frequency.monthly => 'months',
-    Frequency.yearly => 'years',
+  final args = {'n': rule.interval};
+  return switch (rule.frequency) {
+    Frequency.daily => context.tr('Every {n} days', args),
+    Frequency.weekly => context.tr('Every {n} weeks', args),
+    Frequency.monthly => context.tr('Every {n} months', args),
+    Frequency.yearly => context.tr('Every {n} years', args),
   };
-  return 'Every ${rule.interval} $unit';
 }
 
 /// Subscriptions or recurring bills (rent, electricity, gym…), by [kind].
@@ -44,21 +45,21 @@ class RecurringScreen extends ConsumerWidget {
     final currency = ref.watch(currencyProvider);
     final today = ref.watch(clockProvider)();
     final categories = ref.watch(categoryByIdProvider);
-    final dateFormat = DateFormat.MMMd();
+    final dateFormat = DateFormat.MMMd(context.lang);
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isSubscription ? 'Subscriptions' : 'Recurring expenses')),
+      appBar: AppBar(title: Text(_isSubscription ? context.tr('Subscriptions') : context.tr('Recurring expenses'))),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => context.push(Routes.newRecurringOfKind(kind.name)),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Add'),
+        label: Text(context.tr('Add')),
       ),
       body: all.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(
-          child: EmptyState(icon: Icons.error_outline_rounded, message: 'Could not load data.'),
+        error: (_, _) => Center(
+          child: EmptyState(icon: Icons.error_outline_rounded, message: context.tr('Could not load data.')),
         ),
         data: (allItems) {
           final items = allItems.where((i) => i.kind == kind).toList()
@@ -85,16 +86,16 @@ class RecurringScreen extends ConsumerWidget {
                         spacing: 32,
                         runSpacing: 12,
                         children: [
-                          _Figure(label: 'Per month', value: totals.monthly.format()),
-                          _Figure(label: 'Per year', value: totals.yearly.format()),
-                          _Figure(label: 'Active', value: '${totals.count}'),
+                          _Figure(label: context.tr('Per month'), value: totals.monthly.format()),
+                          _Figure(label: context.tr('Per year'), value: totals.yearly.format()),
+                          _Figure(label: context.tr('Active'), value: '${totals.count}'),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Charges are recorded as expenses automatically on their due date.',
+                    context.tr('Charges are recorded as expenses automatically on their due date.'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -102,8 +103,8 @@ class RecurringScreen extends ConsumerWidget {
                     EmptyState(
                       icon: _isSubscription ? Icons.autorenew_rounded : Icons.event_repeat_rounded,
                       message: _isSubscription
-                          ? 'No subscriptions yet. Add streaming, apps or memberships.'
-                          : 'No recurring expenses yet. Add rent, utilities, insurance, loans…',
+                          ? context.tr('No subscriptions yet. Add streaming, apps or memberships.')
+                          : context.tr('No recurring expenses yet. Add rent, utilities, insurance, loans…'),
                     ),
                   for (final item in items)
                     ListTile(
@@ -116,11 +117,11 @@ class RecurringScreen extends ConsumerWidget {
                       title: Text(item.name, overflow: TextOverflow.ellipsis),
                       subtitle: Text(
                         [
-                          '${item.amount.format()} · ${frequencyLabel(item.rule)}',
+                          '${item.amount.format()} · ${frequencyLabel(context, item.rule)}',
                           if (item.nextDueDate(today) case final next?)
-                            'Next: ${dateFormat.format(next)}'
+                            context.tr('Next: {date}', {'date': dateFormat.format(next)})
                           else
-                            item.isActive ? 'Ended' : 'Paused',
+                            item.isActive ? context.tr('Ended') : context.tr('Paused'),
                         ].join('\n'),
                       ),
                       isThreeLine: true,

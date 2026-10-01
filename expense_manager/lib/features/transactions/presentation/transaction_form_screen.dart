@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/currency.dart';
 import '../../../core/money/money.dart';
@@ -31,10 +32,10 @@ class TransactionFormScreen extends ConsumerWidget {
 
     return ref.watch(transactionByIdProvider(id)).when(
           data: (tx) => tx == null
-              ? const _MessageScaffold('This transaction no longer exists.')
+              ? _MessageScaffold(context.tr('This transaction no longer exists.'))
               : _TransactionForm(initial: tx, initialType: tx.type),
           loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (_, _) => const _MessageScaffold('Could not load this transaction.'),
+          error: (_, _) => _MessageScaffold(context.tr('Could not load this transaction.')),
         );
   }
 }
@@ -118,11 +119,11 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit transaction' : 'New transaction'),
+        title: Text(_isEditing ? context.tr('Edit transaction') : context.tr('New transaction')),
         actions: [
           if (_isEditing)
             IconButton(
-              tooltip: 'Delete',
+              tooltip: context.tr('Delete'),
               icon: const Icon(Icons.delete_outline_rounded),
               onPressed: _saving ? null : _delete,
             ),
@@ -142,16 +143,16 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
               children: [
                 if (editableType)
                   SegmentedButton<TransactionType>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: TransactionType.expense,
-                        label: Text('Expense'),
-                        icon: Icon(Icons.arrow_upward_rounded),
+                        label: Text(context.tr('Expense')),
+                        icon: const Icon(Icons.arrow_upward_rounded),
                       ),
                       ButtonSegment(
                         value: TransactionType.income,
-                        label: Text('Income'),
-                        icon: Icon(Icons.arrow_downward_rounded),
+                        label: Text(context.tr('Income')),
+                        icon: const Icon(Icons.arrow_downward_rounded),
                       ),
                     ],
                     selected: {_type},
@@ -176,8 +177,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   maxLength: 200,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: isIncome ? 'Description (optional)' : 'Description',
-                    hintText: isIncome ? 'e.g. September salary' : 'e.g. Groceries',
+                    labelText: isIncome ? context.tr('Description (optional)') : context.tr('Description'),
+                    hintText: isIncome ? context.tr('e.g. September salary') : context.tr('e.g. Groceries'),
                   ),
                 ),
                 if (isIncome) ...[
@@ -186,7 +187,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                     controller: _source,
                     maxLength: 200,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Source (optional)', hintText: 'e.g. Employer'),
+                    decoration: InputDecoration(labelText: context.tr('Source (optional)'), hintText: context.tr('e.g. Employer')),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -194,9 +195,9 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   key: ValueKey('category-$_type-${categories.length}'),
                   initialValue: selectedCategory,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Category'),
+                  decoration: InputDecoration(labelText: context.tr('Category')),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Uncategorized')),
+                    DropdownMenuItem(value: null, child: Text(context.tr('Uncategorized'))),
                     for (final c in categories)
                       DropdownMenuItem(
                         value: c.id,
@@ -204,7 +205,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                           children: [
                             Icon(iconForKey(c.iconKey), size: 20, color: Color(c.color)),
                             const SizedBox(width: 12),
-                            Flexible(child: Text(c.name, overflow: TextOverflow.ellipsis)),
+                            Flexible(child: Text(c.label(context), overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                       ),
@@ -216,10 +217,10 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   key: ValueKey('methods-${methods.length}'),
                   initialValue: methods.any((m) => m.id == _paymentMethodId) ? _paymentMethodId : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Payment method'),
+                  decoration: InputDecoration(labelText: context.tr('Payment method')),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Not specified')),
-                    for (final m in methods) DropdownMenuItem(value: m.id, child: Text(m.name)),
+                    DropdownMenuItem(value: null, child: Text(context.tr('Not specified'))),
+                    for (final m in methods) DropdownMenuItem(value: m.id, child: Text(m.label(context))),
                   ],
                   onChanged: (id) => setState(() => _paymentMethodId = id),
                 ),
@@ -227,8 +228,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_rounded),
-                  title: Text(DateFormat.yMMMEd().add_jm().format(_occurredAt)),
-                  subtitle: const Text('Date & time'),
+                  title: Text(DateFormat.yMMMEd(context.lang).add_jm().format(_occurredAt)),
+                  subtitle: Text(context.tr('Date & time')),
                   trailing: const Icon(Icons.edit_calendar_rounded),
                   onTap: _pickDateTime,
                 ),
@@ -238,7 +239,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   maxLength: 1000,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                  decoration: InputDecoration(labelText: context.tr('Notes (optional)')),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -246,7 +247,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   icon: _saving
                       ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.check_rounded),
-                  label: Text(_isEditing ? 'Save changes' : 'Save'),
+                  label: Text(_isEditing ? context.tr('Save changes') : context.tr('Save')),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                 ),
               ],
@@ -299,15 +300,17 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
 
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
+    final savedText = _isEditing ? context.tr('Changes saved') : context.tr('Transaction added');
+    final failedText = context.tr('Could not save. Please check the values.');
     try {
       await ref.read(transactionActionsProvider).save(tx);
       if (!mounted) return;
       context.pop();
-      messenger.showSnackBar(SnackBar(content: Text(_isEditing ? 'Changes saved' : 'Transaction added')));
+      messenger.showSnackBar(SnackBar(content: Text(savedText)));
     } on Object {
       // Details are not shown: they could contain user data.
       if (mounted) setState(() => _saving = false);
-      messenger.showSnackBar(const SnackBar(content: Text('Could not save. Please check the values.')));
+      messenger.showSnackBar(SnackBar(content: Text(failedText)));
     }
   }
 
@@ -316,10 +319,10 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete transaction?'),
+        title: Text(context.tr('Delete transaction?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Delete'))),
         ],
       ),
     );
@@ -330,8 +333,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     if (!mounted) return;
     context.pop();
     messenger.showSnackBar(SnackBar(
-      content: const Text('Transaction deleted'),
-      action: SnackBarAction(label: 'Undo', onPressed: () => actions.restore(tx)),
+      content: Text(context.tr('Transaction deleted')),
+      action: SnackBarAction(label: context.tr('Undo'), onPressed: () => actions.restore(tx)),
     ));
   }
 }
@@ -348,10 +351,10 @@ class _RecurringOrigin extends ConsumerWidget {
     final matches = items.where((i) => i.id == recurringItemId);
     final item = matches.isEmpty ? null : matches.first;
     final label = item == null
-        ? 'Recorded automatically from a recurring charge'
+        ? context.tr('Recorded automatically from a recurring charge')
         : item.kind == RecurringKind.subscription
-            ? 'Subscription: ${item.name}'
-            : 'Recurring expense: ${item.name}';
+            ? context.tr('Subscription: {name}', {'name': item.name})
+            : context.tr('Recurring expense: {name}', {'name': item.name});
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: EmptyState(icon: Icons.autorenew_rounded, message: label),

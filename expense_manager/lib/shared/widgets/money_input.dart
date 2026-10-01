@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/money/currency.dart';
 import '../../core/money/money.dart';
 
 /// Validator for amount fields. [allowZero] for budgets.
-String? validateMoneyInput(String? text, Currency currency, {bool allowZero = false}) {
+String? validateMoneyInput(BuildContext context, String? text, Currency currency, {bool allowZero = false}) {
   final money = Money.tryParse(text ?? '', currency);
-  if (money == null) return 'Enter a valid amount';
-  if (money.isNegative || (!allowZero && money.isZero)) return 'Amount must be greater than zero';
+  if (money == null) return context.tr('Enter a valid amount');
+  if (money.isNegative || (!allowZero && money.isZero)) return context.tr('Amount must be greater than zero');
   return null;
 }
 
@@ -18,7 +19,7 @@ class MoneyFormField extends StatelessWidget {
     super.key,
     required this.controller,
     required this.currency,
-    this.label = 'Amount',
+    this.label,
     this.autofocus = false,
     this.allowZero = false,
     this.large = false,
@@ -26,7 +27,7 @@ class MoneyFormField extends StatelessWidget {
 
   final TextEditingController controller;
   final Currency currency;
-  final String label;
+  final String? label;
   final bool autofocus;
   final bool allowZero;
   final bool large;
@@ -38,8 +39,8 @@ class MoneyFormField extends StatelessWidget {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9.,]'))],
         style: large ? Theme.of(context).textTheme.headlineMedium : null,
-        decoration: InputDecoration(labelText: label, prefixText: '${currency.symbol} '),
-        validator: (text) => validateMoneyInput(text, currency, allowZero: allowZero),
+        decoration: InputDecoration(labelText: label ?? context.tr('Amount'), prefixText: '${currency.symbol} '),
+        validator: (text) => validateMoneyInput(context, text, currency, allowZero: allowZero),
       );
 }
 
@@ -98,8 +99,8 @@ class _MoneyDialogState extends State<_MoneyDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: _submit, child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
+          FilledButton(onPressed: _submit, child: Text(context.tr('Save'))),
         ],
       );
 }

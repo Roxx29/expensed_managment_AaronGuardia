@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/currency.dart';
 import '../../../shared/providers/providers.dart';
@@ -13,11 +14,12 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
+    final language = ref.watch(languageProvider).value?.languageCode ?? 'system';
     final currency = ref.watch(currencyProvider);
     final controller = ref.read(settingsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(context.tr('Settings'))),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -26,14 +28,14 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             children: [
               SectionCard(
-                title: 'Appearance',
+                title: context.tr('Appearance'),
                 child: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_rounded)),
-                      ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_rounded)),
-                      ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_rounded)),
+                    segments: [
+                      ButtonSegment(value: ThemeMode.light, label: Text(context.tr('Light')), icon: const Icon(Icons.light_mode_rounded)),
+                      ButtonSegment(value: ThemeMode.dark, label: Text(context.tr('Dark')), icon: const Icon(Icons.dark_mode_rounded)),
+                      ButtonSegment(value: ThemeMode.system, label: Text(context.tr('System')), icon: const Icon(Icons.brightness_auto_rounded)),
                     ],
                     selected: {themeMode},
                     onSelectionChanged: (selection) => controller.setThemeMode(selection.first),
@@ -42,15 +44,32 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               SectionCard(
-                title: 'Currency',
+                title: context.tr('Language'),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: [
+                      // Language names stay in their own language so they are always recognizable.
+                      const ButtonSegment(value: 'en', label: Text('English')),
+                      const ButtonSegment(value: 'es', label: Text('Español')),
+                      ButtonSegment(value: 'system', label: Text(context.tr('System')), icon: const Icon(Icons.language_rounded)),
+                    ],
+                    selected: {language},
+                    onSelectionChanged: (s) => controller.setLanguage(s.first == 'system' ? null : Locale(s.first)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
+                title: context.tr('Currency'),
                 child: DropdownButtonFormField<Currency>(
                   key: ValueKey(currency),
                   initialValue: currency,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Main currency'),
+                  decoration: InputDecoration(labelText: context.tr('Main currency')),
                   items: [
                     for (final c in Currency.values)
-                      DropdownMenuItem(value: c, child: Text('${c.code} — ${c.displayName}')),
+                      DropdownMenuItem(value: c, child: Text('${c.code} — ${context.tr(c.displayName)}')),
                   ],
                   onChanged: (c) {
                     if (c != null) controller.setCurrency(c);
@@ -61,7 +80,7 @@ class SettingsScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
-                  'Amounts are not converted between currencies.',
+                  context.tr('Amounts are not converted between currencies.'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),

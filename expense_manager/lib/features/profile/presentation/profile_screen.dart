@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/utils/validators.dart';
 import '../../../domain/entities/entities.dart';
@@ -16,11 +17,11 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: Text(context.tr('Profile'))),
       body: ref.watch(profileProvider).when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => const Center(
-              child: EmptyState(icon: Icons.error_outline_rounded, message: 'Could not load your profile.'),
+            error: (_, _) => Center(
+              child: EmptyState(icon: Icons.error_outline_rounded, message: context.tr('Could not load your profile.')),
             ),
             data: (profile) => _ProfileForm(profile: profile),
           ),
@@ -55,15 +56,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
+    final savedText = context.tr('Profile saved');
+    final failedText = context.tr('Could not save the profile.');
     try {
       await ref.read(profileActionsProvider).save(
             name: _name.text,
             email: _email.text,
             countryCode: _country,
           );
-      messenger.showSnackBar(const SnackBar(content: Text('Profile saved')));
+      messenger.showSnackBar(SnackBar(content: Text(savedText)));
     } on Object {
-      messenger.showSnackBar(const SnackBar(content: Text('Could not save the profile.')));
+      messenger.showSnackBar(SnackBar(content: Text(failedText)));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -80,13 +83,13 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Choose from gallery'),
+              title: Text(context.tr('Choose from gallery')),
               onTap: () => Navigator.pop(context, 'pick'),
             ),
             if (hasPhoto)
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('Remove photo'),
+                title: Text(context.tr('Remove photo')),
                 onTap: () => Navigator.pop(context, 'remove'),
               ),
           ],
@@ -96,6 +99,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     if (!mounted || choice == null) return;
     final actions = ref.read(profileActionsProvider);
     final messenger = ScaffoldMessenger.of(context);
+    final failedText = context.tr('Could not update the photo.');
     try {
       if (choice == 'pick') {
         await actions.pickPhoto();
@@ -103,7 +107,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         await actions.removePhoto();
       }
     } on Object {
-      messenger.showSnackBar(const SnackBar(content: Text('Could not update the photo.')));
+      messenger.showSnackBar(SnackBar(content: Text(failedText)));
     }
   }
 
@@ -128,7 +132,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                 Center(
                   child: Semantics(
                     button: true,
-                    label: 'Change profile photo',
+                    label: context.tr('Change profile photo'),
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: _photoOptions,
@@ -164,27 +168,27 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                   controller: _name,
                   maxLength: 80,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'Name'),
+                  decoration: InputDecoration(labelText: context.tr('Name')),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _email,
                   maxLength: 120,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email (optional)'),
+                  decoration: InputDecoration(labelText: context.tr('Email (optional)')),
                   validator: (v) {
                     final text = (v ?? '').trim();
-                    return text.isEmpty || emailPattern.hasMatch(text) ? null : 'Enter a valid email';
+                    return text.isEmpty || emailPattern.hasMatch(text) ? null : context.tr('Enter a valid email');
                   },
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
                   initialValue: countries.containsKey(_country) ? _country : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Country'),
+                  decoration: InputDecoration(labelText: context.tr('Country')),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Not specified')),
-                    for (final e in countries.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    DropdownMenuItem(value: null, child: Text(context.tr('Not specified'))),
+                    for (final e in countries.entries) DropdownMenuItem(value: e.key, child: Text(context.tr(e.value))),
                   ],
                   onChanged: (c) => setState(() => _country = c),
                 ),
@@ -192,8 +196,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.payments_outlined),
-                  title: Text('${currency.code} — ${currency.displayName}'),
-                  subtitle: const Text('Main currency · change it in Settings'),
+                  title: Text('${currency.code} — ${context.tr(currency.displayName)}'),
+                  subtitle: Text(context.tr('Main currency · change it in Settings')),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push(Routes.settings),
                 ),
@@ -201,12 +205,12 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                 FilledButton.icon(
                   onPressed: _saving ? null : _save,
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Save'),
+                  label: Text(context.tr('Save')),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Your profile is stored only on this device.',
+                  context.tr('Your profile is stored only on this device.'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),

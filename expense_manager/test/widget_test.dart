@@ -67,6 +67,26 @@ void main() {
     await _dispose(tester, db);
   });
 
+  testWidgets('settings: choosing Español translates the app', (tester) async {
+    final db = await _pumpApp(tester, const Size(390, 844));
+
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Español'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ajustes'), findsOneWidget);
+    expect(find.text('Inicio'), findsOneWidget);
+    await tester.tap(find.text('Inicio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dinero disponible'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await _dispose(tester, db);
+  });
+
   testWidgets('adding an expense shows it on the dashboard and in history', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
 

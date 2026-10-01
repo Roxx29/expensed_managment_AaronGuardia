@@ -110,6 +110,12 @@ Deep-linkable routes make a future web dashboard straightforward.
   when data changes anywhere; `Notifier`s for editable state (theme, forms, filters).
 - Derived data (dashboard summary, budget progress) is computed by domain calculators inside providers.
 
+**Language (English / Español).** Settings → Language (default: follow the device). `core/l10n`:
+`context.tr('English text', {'x': v})` looks the English text up in `esStrings`; built-in category and
+payment-method names are stored in English and shown through `category.label(context)`. Dates use
+`DateFormat.x(context.lang)`; amounts keep one format (`$1,234.50`). `test/core/l10n_test.dart` fails if a
+`tr('...')` key has no Spanish entry. Move to ARB/gen_l10n when a third language is added.
+
 ## 5. Backup strategy
 
 - Format: one JSON document `{ format, schemaVersion, appVersion, createdAt, sha256, data: { table: [rows] } }`.

@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/entities.dart';
 import '../../domain/finance/budget_calculator.dart';
+
+/// Built-in categories are stored with English names; show them translated.
+/// Names the user typed are shown as-is.
+extension CategoryLabel on FinanceCategory {
+  String label(BuildContext context) => isDefault ? context.trName(name) : name;
+}
+
+extension PaymentMethodLabel on PaymentMethod {
+  String label(BuildContext context) => isDefault ? context.trName(name) : name;
+}
 
 /// Persisted icon keys → Material icons (keeps Flutter out of the domain).
 /// Add new keys at the end; never rename existing ones.
@@ -115,7 +127,7 @@ class BudgetProgressBar extends StatelessWidget {
     };
     final value = progress.ratio.isFinite ? progress.ratio.clamp(0.0, 1.0).toDouble() : 1.0;
     return Semantics(
-      label: 'Budget used',
+      label: context.tr('Budget used'),
       value: '${(value * 100).round()}%',
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0, end: value),
@@ -145,13 +157,13 @@ class ComingSoonScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: Text(context.tr(title))),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: EmptyState(
             icon: Icons.construction_rounded,
-            message: '$title is planned for $phase.',
+            message: context.tr('{title} is planned for {phase}.', {'title': context.tr(title), 'phase': context.tr(phase)}),
           ),
         ),
       ),

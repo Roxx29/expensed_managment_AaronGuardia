@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/money.dart';
 import '../../../core/theme/app_theme.dart';
@@ -22,7 +23,7 @@ class StatisticsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistics'),
+        title: Text(context.tr('Statistics')),
         actions: [
           if (view.value case final v?)
             Padding(
@@ -42,8 +43,8 @@ class StatisticsScreen extends ConsumerWidget {
       body: view.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(
-          child: EmptyState(icon: Icons.error_outline_rounded, message: 'Could not load statistics.'),
+        error: (_, _) => Center(
+          child: EmptyState(icon: Icons.error_outline_rounded, message: context.tr('Could not load statistics.')),
         ),
         data: (v) => _StatisticsBody(view: v),
       ),
@@ -61,13 +62,13 @@ class _StatisticsBody extends ConsumerWidget {
     final stats = view.year;
     final month = ref.watch(statisticsMonthProvider);
     final categories = ref.watch(categoryByIdProvider);
-    final monthName = DateFormat.MMMM();
-    final monthShort = DateFormat.MMMMd();
+    final monthName = DateFormat.MMMM(context.lang);
+    final monthShort = DateFormat.MMMMd(context.lang);
 
     final primary = <Widget>[
       _SummaryTiles(stats: stats),
       SectionCard(
-        title: 'Monthly spending ${stats.year}',
+        title: context.tr('Monthly spending {year}', {'year': stats.year}),
         child: MoneyBarChart(
           values: stats.monthlyExpenses,
           labels: [for (var m = 1; m <= 12; m++) monthName.format(DateTime(2000, m)).substring(0, 1)],
@@ -84,25 +85,25 @@ class _StatisticsBody extends ConsumerWidget {
     final selectedYearIndex = view.history.keys.toList().indexOf(stats.year);
     final secondary = <Widget>[
       SectionCard(
-        title: 'Highlights ${stats.year}',
+        title: context.tr('Highlights {year}', {'year': stats.year}),
         child: stats.highestDay == null
-            ? const EmptyState(icon: Icons.insights_outlined, message: 'No expenses recorded this year.')
+            ? EmptyState(icon: Icons.insights_outlined, message: context.tr('No expenses recorded this year.'))
             : Column(
                 children: [
                   _Highlight(
                     icon: iconForKey(categories[highestCategory?.categoryId]?.iconKey ?? ''),
-                    label: 'Top category',
-                    value: '${categories[highestCategory?.categoryId]?.name ?? 'Uncategorized'} · '
+                    label: context.tr('Top category'),
+                    value: '${categories[highestCategory?.categoryId]?.label(context) ?? context.tr('Uncategorized')} · '
                         '${highestCategory!.amount.format()}',
                   ),
                   _Highlight(
                     icon: Icons.today_rounded,
-                    label: 'Highest-spending day',
+                    label: context.tr('Highest-spending day'),
                     value: '${monthShort.format(stats.highestDay!.date)} · ${stats.highestDay!.amount.format()}',
                   ),
                   _Highlight(
                     icon: Icons.calendar_month_rounded,
-                    label: 'Highest-spending month',
+                    label: context.tr('Highest-spending month'),
                     value: '${monthName.format(DateTime(stats.year, stats.highestMonth!))} · '
                         '${stats.monthlyExpenses[stats.highestMonth! - 1].format()}',
                   ),
@@ -110,9 +111,9 @@ class _StatisticsBody extends ConsumerWidget {
               ),
       ),
       SectionCard(
-        title: 'Spending by category ${stats.year}',
+        title: context.tr('Spending by category {year}', {'year': stats.year}),
         child: stats.expensesByCategory.isEmpty
-            ? const EmptyState(icon: Icons.pie_chart_outline_rounded, message: 'No expenses recorded this year.')
+            ? EmptyState(icon: Icons.pie_chart_outline_rounded, message: context.tr('No expenses recorded this year.'))
             : Column(
                 children: [
                   for (final c in stats.expensesByCategory)
@@ -126,11 +127,11 @@ class _StatisticsBody extends ConsumerWidget {
               ),
       ),
       SectionCard(
-        title: 'Spending by year',
+        title: context.tr('Spending by year'),
         child: view.history.length < 2
-            ? const EmptyState(
+            ? EmptyState(
                 icon: Icons.history_rounded,
-                message: 'Your yearly history appears here once you have more than one year of data.',
+                message: context.tr('Your yearly history appears here once you have more than one year of data.'),
               )
             : MoneyBarChart(
                 values: view.history.values.toList(),
@@ -201,9 +202,9 @@ class _SummaryTiles extends StatelessWidget {
           spacing: 32,
           runSpacing: 16,
           children: [
-            tile('Spent in ${stats.year}', stats.totalExpenses.format()),
-            tile('Monthly average', stats.monthlyAverage.format()),
-            tile('Income in ${stats.year}', stats.totalIncome.format()),
+            tile(context.tr('Spent in {year}', {'year': stats.year}), stats.totalExpenses.format()),
+            tile(context.tr('Monthly average'), stats.monthlyAverage.format()),
+            tile(context.tr('Income in {year}', {'year': stats.year}), stats.totalIncome.format()),
           ],
         ),
       ),
@@ -238,15 +239,15 @@ class _MonthComparisonCard extends StatelessWidget {
     final theme = Theme.of(context);
     final finance = FinanceColors.of(context);
     final current = comparison.current;
-    final monthName = DateFormat.yMMMM().format(current.month.start);
-    final previousName = DateFormat.MMMM().format(comparison.previous.month.start);
+    final monthName = DateFormat.yMMMM(context.lang).format(current.month.start);
+    final previousName = DateFormat.MMMM(context.lang).format(comparison.previous.month.start);
     final change = comparison.expenseChangePercent;
 
     String categoryNote(String? categoryId, Money amount) {
       final before = comparison.previousFor(categoryId);
-      if (!before.isPositive) return 'new';
+      if (!before.isPositive) return context.tr('new');
       final pct = divideRounded((amount - before).minor * 100, before.minor);
-      return pct == 0 ? 'same' : '${pct > 0 ? '▲' : '▼'} ${pct.abs()}%';
+      return pct == 0 ? context.tr('same') : '${pct > 0 ? '▲' : '▼'} ${pct.abs()}%';
     }
 
     return SectionCard(
@@ -260,7 +261,7 @@ class _MonthComparisonCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                'Spent ${current.expenses.format()}',
+                context.tr('Spent {amount}', {'amount': current.expenses.format()}),
                 style: theme.textTheme.titleMedium,
               ),
               if (change != null)
@@ -274,21 +275,27 @@ class _MonthComparisonCard extends StatelessWidget {
                       color: change > 0 ? finance.expense : finance.income,
                     ),
                     const SizedBox(width: 4),
-                    Flexible(child: Text('${change.abs()}% ${change > 0 ? 'more' : 'less'} than $previousName')),
+                    Flexible(
+                      child: Text(
+                        change > 0
+                            ? context.tr('{pct}% more than {month}', {'pct': change.abs(), 'month': previousName})
+                            : context.tr('{pct}% less than {month}', {'pct': change.abs(), 'month': previousName}),
+                      ),
+                    ),
                   ],
                 )
               else
-                Text('No expenses in $previousName to compare', style: theme.textTheme.bodySmall),
+                Text(context.tr('No expenses in {month} to compare', {'month': previousName}), style: theme.textTheme.bodySmall),
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            'Income ${current.income.format()} · Left ${current.net.format()}',
+            context.tr('Income {income} · Left {left}', {'income': current.income.format(), 'left': current.net.format()}),
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
           if (current.expensesByCategory.isEmpty)
-            const EmptyState(icon: Icons.receipt_long_outlined, message: 'No expenses this month.')
+            EmptyState(icon: Icons.receipt_long_outlined, message: context.tr('No expenses this month.'))
           else
             for (final c in current.expensesByCategory)
               CategoryAmountRow(
