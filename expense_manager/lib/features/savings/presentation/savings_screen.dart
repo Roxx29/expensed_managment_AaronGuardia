@@ -219,7 +219,7 @@ Future<void> _run(BuildContext context, Future<void> Function() action, String s
 }
 
 Future<void> _editGoal(BuildContext context, WidgetRef ref, SavingsGoal? goal) async {
-  final currency = goal?.target.currency ?? ref.read(currencyProvider);
+  final Currency currency = goal == null ? ref.read(currencyProvider) : goal.target.currency;
   final result = await showDialog<_GoalInput>(
     context: context,
     builder: (_) => _GoalDialog(goal: goal, currency: currency),
