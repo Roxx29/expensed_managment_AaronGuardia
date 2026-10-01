@@ -22,9 +22,9 @@ const _installedKey = 'security.installed';
 const _lockKey = 'security.lock';
 
 const _storage = FlutterSecureStorage(
-  // resetOnError: an Android auto-backup restored onto another device cannot
-  // be decrypted; start clean instead of throwing on every read and write.
-  aOptions: AndroidOptions(encryptedSharedPreferences: true, resetOnError: true),
+  // v10+ encrypts with Android Keystore-backed ciphers by default. App backup
+  // is off (allowBackup=false), so values never move to another device.
+  aOptions: AndroidOptions(),
   iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
 );
 

@@ -175,8 +175,22 @@ payment-method names are stored in English and shown through `category.label(con
 | **2 – Planning** | Monthly + category budgets (versioned per month, allocation), recurring expenses & subscriptions (custom frequencies, pause, monthly/yearly cost), idempotent auto-posting of due charges | ✅ |
 | **3 – Insight** | Statistics: monthly bars per year (tap a month), month-vs-previous comparison by category, spending by category, highlights (top category / day / month), annual total, monthly average, yearly history, year selector. Charts are plain Flutter widgets (no chart dependency) | ✅ |
 | **4 – Profile & data** | Profile (name, email, photo, country, currency). Backups: manual + automatic (daily/weekly/monthly, checked on launch, last 10 kept), validation (format, version, checksum, typed rows, DB constraints), all-or-nothing restore with safety copy, restore from file, export via share sheet | ✅ MVP complete |
-| 5 – Post-MVP | Savings goals UI, local notifications, CSV/JSON export, PIN/biometric lock, encrypted backup export | next |
-| 6 – Cloud | Auth (Google/Apple), sync, cloud backup, premium, multi-account, AI assistant, OCR, bank import | |
+| **5 – Post-MVP** | Savings goals (deposit/withdraw as `savings`/`savingsWithdrawal` transactions, monthly suggestion), local notifications (payment reminders 1 day before / same day at 9:00, budget alerts at 80% / over; no amounts shown), CSV export (RFC 4180, formula-injection safe), passphrase-encrypted backup export/restore (AES-256-GCM, PBKDF2-SHA256 210k), PIN + biometric app lock (PBKDF2 PIN hash in secure storage, lockout, relock after 30 s, privacy cover) | ✅ |
+| **6 – Cloud & smart** | ✅ offline parts: bank statement CSV import (column mapping, ES/EN headers, dedupe by deterministic id), on-device receipt OCR (ML Kit, prefills a new expense), rule-based finance assistant (EN/ES, swappable for an LLM via `financeAssistantProvider`). ⏳ needs external accounts: auth (Google/Apple), sync, cloud backup, premium, multi-account — see *Cloud setup* below | partial |
 
 Verification after each phase: `flutter analyze`, `flutter test`, manual run on a phone + tablet size,
 light/dark check, and DB migration test when `schemaVersion` changes.
+
+## 8. Cloud setup (Phase 6, pending)
+
+These need accounts/keys that only the owner can create, so they are not implemented yet:
+
+1. **Firebase project** (Auth + Firestore or Supabase): add `google-services.json`, enable Google and Apple sign-in.
+2. **Sync**: every table already has `id` (UUID), `updatedAt` and `deletedAt` (soft delete), so a last-write-wins
+   sync per row can be added behind the repository interfaces without schema changes.
+3. **Cloud backup**: implement `BackupStorage` for Drive/iCloud/Firebase Storage and override `backupStorageProvider`;
+   upload only the encrypted envelope (`backup_crypto.dart`).
+4. **Premium**: Google Play Billing (`in_app_purchase`) needs a Play Console app and products.
+5. **AI assistant (LLM)**: implement `FinanceAssistant` with a backend call and override `financeAssistantProvider`;
+   send aggregates, never raw transactions, and require explicit opt-in.
+

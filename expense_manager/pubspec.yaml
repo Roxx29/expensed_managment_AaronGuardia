@@ -32,7 +32,7 @@ dependencies:
   cupertino_icons: ^2.0.0
   # Phase 5: encryption (PIN hash, encrypted backups), app lock, reminders
   cryptography: ^2.7.0
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^11.2.0
   local_auth: ^2.3.0
   flutter_local_notifications: ^19.4.0
   timezone: ^0.10.1
