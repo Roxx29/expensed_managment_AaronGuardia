@@ -9,6 +9,7 @@ import '../../core/utils/ids.dart';
 import '../../domain/backup/backup_policy.dart';
 import '../database/app_database.dart';
 import 'backup_codec.dart';
+import 'backup_crypto.dart';
 import 'backup_storage.dart';
 
 /// Manual / automatic backups, validation and restore.
@@ -66,24 +67,38 @@ class BackupService {
     return true;
   }
 
-  Future<void> restore(BackupRecord record) async => _restore(await _storage.read(record.fileName));
+  Future<void> restore(BackupRecord record) async => restoreFromContent(await read(record));
+
+  /// Plain JSON of a stored backup (e.g. to encrypt it for export).
+  Future<String> read(BackupRecord record) => _storage.read(record.fileName);
 
   /// Restores a backup file chosen by the user (e.g. from another phone).
-  Future<void> restoreFromFile(String path) async {
+  /// Encrypted files are decrypted with the passphrase from [askPassphrase].
+  /// Returns false when the user cancels the passphrase prompt.
+  Future<bool> restoreFromFile(String path, {Future<String?> Function()? askPassphrase}) async {
     final file = File(path);
-    if (await file.length() > BackupCodec.maxBytes) {
+    // Encrypted files are base64 (~4/3 larger); the plain JSON inside is
+    // checked against maxBytes again when parsed.
+    if (await file.length() > BackupCodec.maxBytes * 2) {
       throw const BackupException(BackupError.tooLarge);
     }
-    final String content;
+    String content;
     try {
       content = await file.readAsString();
     } on FileSystemException {
       throw const BackupException(BackupError.notABackup);
     }
-    await _restore(content);
+    if (isEncryptedBackup(content)) {
+      final passphrase = await askPassphrase?.call();
+      if (passphrase == null) return false;
+      content = await decryptBackup(content, passphrase);
+    }
+    await restoreFromContent(content);
+    return true;
   }
 
-  Future<void> _restore(String content) async {
+  /// Validates and restores plain backup JSON, keeping a safety copy first.
+  Future<void> restoreFromContent(String content) async {
     final backup = await BackupCodec.validate(content); // throws before anything changes
     await create(BackupOrigin.safety); // lets the user undo a bad restore
     await _codec.restore(backup);

@@ -25,7 +25,8 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tx = transaction;
     final finance = FinanceColors.of(context);
-    final isIncome = tx.type == TransactionType.income;
+    // Money coming back into the available balance shows as positive.
+    final isIncome = tx.type == TransactionType.income || tx.type == TransactionType.savingsWithdrawal;
     final color = Color(category?.color ?? 0xFF757575);
     final date = showTime ? DateFormat.jm(context.lang).format(tx.occurredAt) : DateFormat.MMMd(context.lang).format(tx.occurredAt);
     final subtitle = [category?.label(context) ?? context.tr('Uncategorized'), date].join(' · ');
@@ -57,5 +58,6 @@ class TransactionTile extends StatelessWidget {
         TransactionType.income => context.tr('Income'),
         TransactionType.transfer => context.tr('Transfer'),
         TransactionType.savings => context.tr('Savings'),
+        TransactionType.savingsWithdrawal => context.tr('Savings withdrawal'),
       };
 }

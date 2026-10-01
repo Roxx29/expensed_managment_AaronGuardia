@@ -5,26 +5,24 @@ import 'package:go_router/go_router.dart';
 import '../core/l10n/l10n.dart';
 import '../domain/entities/entities.dart';
 import '../features/backup/presentation/backup_screen.dart';
+import '../features/assistant/presentation/assistant_screen.dart';
 import '../features/budgets/presentation/budgets_screen.dart';
 import '../features/categories/presentation/categories_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/import/presentation/import_screen.dart';
+import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recurring/presentation/recurring_form_screen.dart';
 import '../features/recurring/presentation/recurring_screen.dart';
+import '../features/savings/presentation/savings_screen.dart';
+import '../features/security/presentation/security_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/statistics/presentation/statistics_screen.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
-import '../shared/widgets/common_widgets.dart';
 import 'adaptive_shell.dart';
 import 'more_screen.dart';
 import 'routes.dart';
-
-
-GoRoute _comingSoon(String path, String title, String phase) => GoRoute(
-      path: path,
-      builder: (_, _) => ComingSoonScreen(title: title, phase: phase),
-    );
 
 /// Provided (not global) so each ProviderScope — e.g. each test — gets a fresh
 /// navigation state. Auth/app-lock redirects will hook in here later.
@@ -69,7 +67,11 @@ GoRouter _buildRouter() => GoRouter(
               GoRoute(path: 'categories', builder: (_, _) => const CategoriesScreen()),
               GoRoute(path: 'profile', builder: (_, _) => const ProfileScreen()),
               GoRoute(path: 'backup', builder: (_, _) => const BackupScreen()),
-              _comingSoon('savings', 'Savings goals', 'Phase 5'),
+              GoRoute(path: 'savings', builder: (_, _) => const SavingsScreen()),
+              GoRoute(path: 'security', builder: (_, _) => const SecurityScreen()),
+              GoRoute(path: 'notifications', builder: (_, _) => const NotificationsScreen()),
+              GoRoute(path: 'import', builder: (_, _) => const ImportScreen()),
+              GoRoute(path: 'assistant', builder: (_, _) => const AssistantScreen()),
             ],
           ),
         ]),
@@ -81,6 +83,7 @@ GoRouter _buildRouter() => GoRouter(
       builder: (_, state) => TransactionFormScreen(
         initialType: TransactionType.values.asNameMap()[state.uri.queryParameters['type']] ??
             TransactionType.expense,
+        draft: state.extra is TransactionDraft ? state.extra! as TransactionDraft : null,
       ),
     ),
     GoRoute(

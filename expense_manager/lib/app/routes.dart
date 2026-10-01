@@ -13,6 +13,10 @@ abstract final class Routes {
   static const categories = '/more/categories';
   static const profile = '/more/profile';
   static const backup = '/more/backup';
+  static const security = '/more/security';
+  static const notifications = '/more/notifications';
+  static const importStatement = '/more/import';
+  static const assistant = '/more/assistant';
 
   // Full-screen routes (outside the tab shell).
   static const newTransaction = '/transaction/new';

@@ -24,7 +24,7 @@ class MonthSummary {
   final Money income;
   final Money expenses;
 
-  /// Money moved into savings goals this month.
+  /// Net money moved into savings goals this month (deposits − withdrawals).
   final Money savings;
 
   /// Sorted by amount, highest first.
@@ -59,6 +59,8 @@ abstract final class SummaryCalculator {
               (byCategory[t.categoryId] ?? Money.zero(currency)) + t.amount;
         case TransactionType.savings:
           savings += t.amount;
+        case TransactionType.savingsWithdrawal:
+          savings -= t.amount;
         case TransactionType.transfer:
           break;
       }
@@ -87,6 +89,7 @@ abstract final class SummaryCalculator {
         totalsByType[type] ?? Money.zero(currency);
     return of(TransactionType.income) -
         of(TransactionType.expense) -
-        of(TransactionType.savings);
+        of(TransactionType.savings) +
+        of(TransactionType.savingsWithdrawal);
   }
 }

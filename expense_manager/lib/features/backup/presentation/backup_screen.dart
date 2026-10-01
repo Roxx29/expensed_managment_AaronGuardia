@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../data/backup/backup_codec.dart';
+import '../../../data/backup/backup_crypto.dart';
 import '../../../data/database/app_database.dart';
 import '../../../domain/backup/backup_policy.dart';
+import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../application/backup_providers.dart';
 
@@ -18,6 +20,8 @@ String _errorMessage(BuildContext context, Object error) => switch (error) {
       BackupException(error: BackupError.corrupted) => context.tr('The backup file is damaged or incomplete.'),
       BackupException(error: BackupError.invalidData) =>
         context.tr('The backup contains invalid data. Nothing was changed.'),
+      BackupException(error: BackupError.wrongPassphrase) =>
+        context.tr('Wrong passphrase, or the file is damaged. Nothing was changed.'),
       _ => context.tr('Something went wrong. Nothing was changed.'),
     };
 
@@ -82,6 +86,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       ) ??
       false;
 
+  /// Asks for a passphrase; [confirm] adds a second field for new ones.
+  /// Returns null when cancelled.
+  Future<String?> _askPassphrase({required bool confirm}) async {
+    if (!mounted) return null;
+    return showDialog<String>(context: context, builder: (_) => _PassphraseDialog(confirm: confirm));
+  }
+
   @override
   Widget build(BuildContext context) {
     final actions = ref.read(backupActionsProvider);
@@ -92,6 +103,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final createdText = context.tr('Backup created');
     final restoredText = context.tr('Backup restored');
     final deletedText = context.tr('Backup deleted');
+    final categoryById = ref.watch(categoryByIdProvider);
+    final paymentMethodById = ref.watch(paymentMethodByIdProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -150,7 +163,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         ? null
                         : () => _run(() async {
                               if (!await _confirmRestore(context.tr('the file you choose'))) return null;
-                              return await actions.restoreFromFile() ? restoredText : null;
+                              final restored = await actions.restoreFromFile(
+                                askPassphrase: () => _askPassphrase(confirm: false),
+                              );
+                              return restored ? restoredText : null;
                             }),
                     icon: const Icon(Icons.file_open_rounded),
                     label: Text(context.tr('Restore from file')),
@@ -185,6 +201,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                     case 'export':
                                       await actions.export(b, origin: _shareOrigin());
                                       return null;
+                                    case 'exportEncrypted':
+                                      final passphrase = await _askPassphrase(confirm: true);
+                                      if (passphrase == null || !mounted) return null;
+                                      await actions.exportEncrypted(b, passphrase, origin: _shareOrigin());
+                                      return null;
                                     default:
                                       await actions.delete(b);
                                       return deletedText;
@@ -192,7 +213,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                 }),
                                 itemBuilder: (_) => [
                                   PopupMenuItem(value: 'restore', child: Text(context.tr('Restore'))),
-                                  PopupMenuItem(value: 'export', child: Text(context.tr('Export / share'))),
+                                  PopupMenuItem(value: 'exportEncrypted', child: Text(context.tr('Export encrypted'))),
+                                  PopupMenuItem(
+                                    value: 'export',
+                                    child: Text(context.tr('Export / share (not encrypted)')),
+                                  ),
                                   PopupMenuItem(value: 'delete', child: Text(context.tr('Delete'))),
                                 ],
                               ),
@@ -200,17 +225,139 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         ],
                       ),
               ),
+              const SizedBox(height: 16),
+              SectionCard(
+                title: context.tr('Export'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('A spreadsheet file with all your transactions. It is not encrypted.'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              // Labels resolved now, in the current UI language (no context after awaits).
+                              final categories = {for (final c in categoryById.values) c.id: c.label(context)};
+                              final methods = {for (final m in paymentMethodById.values) m.id: m.label(context)};
+                              _run(() async {
+                                await actions.exportTransactionsCsv(
+                                  categoryName: (id) => categories[id] ?? '',
+                                  paymentMethodName: (id) => methods[id] ?? '',
+                                  origin: _shareOrigin(),
+                                );
+                                return null;
+                              });
+                            },
+                      icon: const Icon(Icons.table_view_rounded),
+                      label: Text(context.tr('Export transactions (CSV)')),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
               EmptyState(
                 icon: Icons.lock_outline_rounded,
                 message: context.tr(
-                  'Backup files are not encrypted. Keep exported copies in a private place. Export a backup before changing or resetting your phone.',
+                  'Backups on this device are not encrypted. Use Export encrypted to save a copy outside the app, and export a backup before changing or resetting your phone.',
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PassphraseDialog extends StatefulWidget {
+  const _PassphraseDialog({required this.confirm});
+
+  /// True for a new passphrase (encrypting): asks twice and enforces the length.
+  final bool confirm;
+
+  @override
+  State<_PassphraseDialog> createState() => _PassphraseDialogState();
+}
+
+class _PassphraseDialogState extends State<_PassphraseDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _passphrase = TextEditingController();
+  final _repeat = TextEditingController();
+
+  @override
+  void dispose() {
+    _passphrase.dispose();
+    _repeat.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_formKey.currentState!.validate()) Navigator.pop(context, _passphrase.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.confirm ? context.tr('Encrypt backup') : context.tr('Encrypted backup')),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.confirm
+                    ? context.tr(
+                        'Choose a passphrase of at least {count} characters. If you forget it, the backup cannot be restored.',
+                        {'count': minPassphraseLength},
+                      )
+                    : context.tr('Enter the passphrase used to encrypt this backup.'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passphrase,
+                autofocus: true,
+                obscureText: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                textInputAction: widget.confirm ? TextInputAction.next : TextInputAction.done,
+                onFieldSubmitted: widget.confirm ? null : (_) => _submit(),
+                decoration: InputDecoration(labelText: context.tr('Passphrase')),
+                validator: (v) {
+                  final value = v ?? '';
+                  if (value.isEmpty) return context.tr('Enter the passphrase.');
+                  if (widget.confirm && value.length < minPassphraseLength) {
+                    return context.tr('Use at least {count} characters.', {'count': minPassphraseLength});
+                  }
+                  return null;
+                },
+              ),
+              if (widget.confirm) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _repeat,
+                  obscureText: true,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(labelText: context.tr('Repeat passphrase')),
+                  validator: (v) => v == _passphrase.text ? null : context.tr('The passphrases do not match.'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
+        FilledButton(onPressed: _submit, child: Text(context.tr('OK'))),
+      ],
     );
   }
 }

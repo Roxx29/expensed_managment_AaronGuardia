@@ -9,12 +9,16 @@ class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
   static const _entries = [
+    (Icons.auto_awesome_rounded, 'Assistant', Routes.assistant),
     (Icons.autorenew_rounded, 'Subscriptions', Routes.subscriptions),
     (Icons.event_repeat_rounded, 'Recurring expenses', Routes.recurring),
     (Icons.flag_rounded, 'Savings goals', Routes.savings),
     (Icons.category_rounded, 'Categories & payment methods', Routes.categories),
     (Icons.person_rounded, 'Profile', Routes.profile),
+    (Icons.upload_file_rounded, 'Import bank statement', Routes.importStatement),
     (Icons.backup_rounded, 'Backup & restore', Routes.backup),
+    (Icons.lock_rounded, 'Security', Routes.security),
+    (Icons.notifications_rounded, 'Notifications', Routes.notifications),
     (Icons.settings_rounded, 'Settings', Routes.settings),
   ];
 

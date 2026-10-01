@@ -23,6 +23,7 @@ class MoneyFormField extends StatelessWidget {
     this.autofocus = false,
     this.allowZero = false,
     this.large = false,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
@@ -31,11 +32,13 @@ class MoneyFormField extends StatelessWidget {
   final bool autofocus;
   final bool allowZero;
   final bool large;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) => TextFormField(
         controller: controller,
         autofocus: autofocus,
+        enabled: enabled,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9.,]'))],
         style: large ? Theme.of(context).textTheme.headlineMedium : null,

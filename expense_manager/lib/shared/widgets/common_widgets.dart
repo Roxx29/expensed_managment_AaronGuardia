@@ -146,27 +146,3 @@ class BudgetProgressBar extends StatelessWidget {
     );
   }
 }
-
-/// Placeholder for screens scheduled in a later phase.
-class ComingSoonScreen extends StatelessWidget {
-  const ComingSoonScreen({super.key, required this.title, required this.phase});
-
-  final String title;
-  final String phase;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(context.tr(title))),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: EmptyState(
-            icon: Icons.construction_rounded,
-            message: context.tr('{title} is planned for {phase}.', {'title': context.tr(title), 'phase': context.tr(phase)}),
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -1,14 +1,19 @@
+import 'dart:io';
 import 'dart:ui' show Rect;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../data/backup/backup_crypto.dart';
 import '../../../data/backup/backup_service.dart';
 import '../../../data/backup/backup_storage.dart';
 import '../../../data/database/app_database.dart';
 import '../../../domain/backup/backup_policy.dart';
+import '../../../domain/export/csv_export.dart';
 import '../../../shared/providers/providers.dart';
 
 const _frequencyKey = 'backup.frequency';
@@ -70,27 +75,65 @@ class BackupActions {
   Future<void> delete(BackupRecord record) => _service.delete(record);
 
   /// Opens the share sheet so the user can save the file elsewhere
-  /// (Drive, email, Files…).
+  /// (Drive, email, Files…). The file is NOT encrypted.
   /// [origin] anchors the share popover on iPad.
-  Future<void> export(BackupRecord record, {Rect? origin}) async {
-    final path = await _service.pathOf(record);
-    await SharePlus.instance.share(ShareParams(
-      files: [XFile(path, mimeType: 'application/json')],
-      subject: 'Expense Manager backup',
-      sharePositionOrigin: origin,
-    ));
+  Future<void> export(BackupRecord record, {Rect? origin}) async =>
+      _share(await _service.pathOf(record), 'application/json', origin);
+
+  /// Shares [record] encrypted with [passphrase] (see backup_crypto.dart).
+  Future<void> exportEncrypted(BackupRecord record, String passphrase, {Rect? origin}) async {
+    final encrypted = await encryptBackup(await _service.read(record), passphrase);
+    final file = await _exportFile(record.fileName.replaceFirst(RegExp(r'\.json$'), '.enc.json'));
+    await file.writeAsString(encrypted, flush: true);
+    await _share(file.path, 'application/json', origin);
   }
 
-  /// Lets the user pick a backup file. Returns false if cancelled.
-  /// Throws BackupException when the file is invalid.
-  Future<bool> restoreFromFile() async {
+  /// Shares all transactions as a CSV spreadsheet (UTF-8 with BOM so Excel
+  /// detects the encoding). Names are resolved by the caller in the UI language.
+  Future<void> exportTransactionsCsv({
+    required String Function(String? categoryId) categoryName,
+    String Function(String? id)? paymentMethodName,
+    Rect? origin,
+  }) async {
+    final transactions = await _ref.read(transactionRepositoryProvider).watchAll().first;
+    final csv = transactionsToCsv(transactions, categoryName: categoryName, paymentMethodName: paymentMethodName);
+    final stamp = DateFormat('yyyyMMdd', 'en_US').format(_ref.read(clockProvider)());
+    final file = await _exportFile('transactions_$stamp.csv');
+    await file.writeAsString('\uFEFF$csv', flush: true);
+    await _share(file.path, 'text/csv', origin);
+  }
+
+  /// A file in a temp folder emptied on every export.
+  // ponytail: the previous export is deleted at the next export, not right
+  // after sharing: on Android the receiving app may still be reading it when
+  // share() returns. The OS also clears the cache directory.
+  Future<File> _exportFile(String name) async {
+    final dir = Directory(p.join((await getTemporaryDirectory()).path, 'exports'));
+    try {
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } on FileSystemException {
+      // Best effort: a leftover export is in the app's private cache.
+    }
+    await dir.create(recursive: true);
+    return File(p.join(dir.path, name));
+  }
+
+  Future<void> _share(String path, String mimeType, Rect? origin) => SharePlus.instance.share(ShareParams(
+        files: [XFile(path, mimeType: mimeType)],
+        subject: 'Expense Manager',
+        sharePositionOrigin: origin,
+      ));
+
+  /// Lets the user pick a backup file (plain or encrypted). Returns false if
+  /// cancelled. Throws BackupException when the file is invalid or the
+  /// passphrase is wrong.
+  Future<bool> restoreFromFile({required Future<String?> Function() askPassphrase}) async {
     final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['json'],
     );
     final path = files.firstOrNull?.path;
     if (path == null) return false;
-    await _service.restoreFromFile(path);
-    return true;
+    return _service.restoreFromFile(path, askPassphrase: askPassphrase);
   }
 }

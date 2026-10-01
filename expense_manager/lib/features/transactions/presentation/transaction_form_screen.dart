@@ -12,7 +12,17 @@ import '../../../domain/entities/entities.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
+import '../../import/presentation/receipt_scanner.dart';
 import '../application/transaction_providers.dart';
+
+/// Values to prefill a new transaction with (e.g. from a scanned receipt).
+class TransactionDraft {
+  const TransactionDraft({this.amount, this.description, this.occurredAt});
+
+  final Money? amount;
+  final String? description;
+  final DateTime? occurredAt;
+}
 
 /// Create (no [transactionId]) or edit an expense/income.
 class TransactionFormScreen extends ConsumerWidget {
@@ -20,15 +30,17 @@ class TransactionFormScreen extends ConsumerWidget {
     super.key,
     this.transactionId,
     this.initialType = TransactionType.expense,
+    this.draft,
   });
 
   final String? transactionId;
   final TransactionType initialType;
+  final TransactionDraft? draft;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = transactionId;
-    if (id == null) return _TransactionForm(initial: null, initialType: initialType);
+    if (id == null) return _TransactionForm(initial: null, initialType: initialType, draft: draft);
 
     return ref.watch(transactionByIdProvider(id)).when(
           data: (tx) => tx == null
@@ -53,10 +65,11 @@ class _MessageScaffold extends StatelessWidget {
 }
 
 class _TransactionForm extends ConsumerStatefulWidget {
-  const _TransactionForm({required this.initial, required this.initialType});
+  const _TransactionForm({required this.initial, required this.initialType, this.draft});
 
   final FinanceTransaction? initial;
   final TransactionType initialType;
+  final TransactionDraft? draft;
 
   @override
   ConsumerState<_TransactionForm> createState() => _TransactionFormState();
@@ -80,12 +93,13 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   void initState() {
     super.initState();
     final tx = widget.initial;
-    _amount = TextEditingController(text: tx?.amount.toDecimalString() ?? '');
-    _description = TextEditingController(text: tx?.description ?? '');
+    final draft = widget.draft;
+    _amount = TextEditingController(text: (tx?.amount ?? draft?.amount)?.toDecimalString() ?? '');
+    _description = TextEditingController(text: tx?.description ?? draft?.description ?? '');
     _source = TextEditingController(text: tx?.source ?? '');
     _notes = TextEditingController(text: tx?.notes ?? '');
     _type = widget.initialType;
-    _occurredAt = tx?.occurredAt ?? DateTime.now();
+    _occurredAt = tx?.occurredAt ?? draft?.occurredAt ?? DateTime.now();
     _categoryId = tx?.categoryId;
     _paymentMethodId = tx?.paymentMethodId;
   }
@@ -114,13 +128,16 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     final currentMethod = ref.watch(paymentMethodByIdProvider)[_paymentMethodId];
     if (currentMethod != null && !methods.any((m) => m.id == currentMethod.id)) methods.add(currentMethod);
     final isIncome = _type == TransactionType.income;
-    // Only expense/income are created here; transfers/savings come with Phase 5.
+    // Only expense/income are created here; savings moves are made from the
+    // savings goals screen, so their amount and links stay consistent.
     final editableType = _type == TransactionType.expense || isIncome;
+    final isSavingsMove = _type == TransactionType.savings || _type == TransactionType.savingsWithdrawal;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? context.tr('Edit transaction') : context.tr('New transaction')),
         actions: [
+          if (!_isEditing) const ScanReceiptButton(),
           if (_isEditing)
             IconButton(
               tooltip: context.tr('Delete'),
@@ -170,6 +187,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   currency: currency,
                   autofocus: !_isEditing,
                   large: true,
+                  enabled: !isSavingsMove,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -190,6 +208,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                     decoration: InputDecoration(labelText: context.tr('Source (optional)'), hintText: context.tr('e.g. Employer')),
                   ),
                 ],
+                if (!isSavingsMove) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
                   key: ValueKey('category-$_type-${categories.length}'),
@@ -224,6 +243,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   ],
                   onChanged: (id) => setState(() => _paymentMethodId = id),
                 ),
+                ],
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,

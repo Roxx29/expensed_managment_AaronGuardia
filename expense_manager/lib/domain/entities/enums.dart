@@ -2,7 +2,9 @@
 /// without a migration.
 library;
 
-enum TransactionType { expense, income, transfer, savings }
+/// `savings` moves money into a savings goal, `savingsWithdrawal` takes it
+/// back out (amounts are always positive; the type carries the direction).
+enum TransactionType { expense, income, transfer, savings, savingsWithdrawal }
 
 enum CategoryKind { expense, income, both }
 

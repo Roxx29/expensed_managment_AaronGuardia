@@ -30,6 +30,14 @@ dependencies:
   share_plus: ^13.3.0
   file_picker: 13.1.0
   cupertino_icons: ^2.0.0
+  # Phase 5: encryption (PIN hash, encrypted backups), app lock, reminders
+  cryptography: ^2.7.0
+  flutter_secure_storage: ^9.2.4
+  local_auth: ^2.3.0
+  flutter_local_notifications: ^19.4.0
+  timezone: ^0.10.1
+  # Phase 6: on-device receipt text recognition (no network)
+  google_mlkit_text_recognition: ^0.15.0
 
 dev_dependencies:
   flutter_test:

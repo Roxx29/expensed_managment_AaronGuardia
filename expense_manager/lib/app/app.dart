@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/l10n/l10n.dart';
 import '../core/theme/app_theme.dart';
 import '../features/backup/application/backup_providers.dart';
+import '../features/notifications/application/notification_providers.dart';
 import '../features/recurring/application/recurring_providers.dart';
+import '../features/security/presentation/app_lock_gate.dart';
 import '../features/settings/application/settings_providers.dart';
 import 'router.dart';
 
@@ -19,6 +21,8 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(autoPostRecurringProvider);
     // Automatic backup when the schedule says it is due.
     ref.watch(autoBackupProvider);
+    // Keeps payment reminders and budget alerts in sync (no-op when off).
+    ref.watch(notificationSyncProvider);
     return MaterialApp.router(
       title: 'Expense Manager',
       debugShowCheckedModeBanner: false,
@@ -31,6 +35,8 @@ class ExpenseManagerApp extends ConsumerWidget {
       supportedLocales: supportedLocales,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: ref.watch(routerProvider),
+      // Above the router: no screen or deep link renders before unlock.
+      builder: (context, child) => AppLockGate(child: child!),
     );
   }
 }

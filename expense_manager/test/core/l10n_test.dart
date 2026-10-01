@@ -24,10 +24,11 @@ void main() {
 
   test('keys passed to tr() at runtime are translated too', () {
     const dynamicKeys = [
-      // Navigation, More menu, coming-soon screen.
+      // Navigation and More menu.
       'Home', 'Transactions', 'Budgets', 'Statistics', 'More', 'Subscriptions',
       'Recurring expenses', 'Savings goals', 'Categories & payment methods',
-      'Profile', 'Backup & restore', 'Settings', 'Phase 5',
+      'Profile', 'Backup & restore', 'Settings', 'Assistant',
+      'Import bank statement', 'Security', 'Notifications',
     ];
     for (final en in [...dynamicKeys, ...countries.values, for (final c in Currency.values) c.displayName]) {
       expect(esStrings, contains(en));

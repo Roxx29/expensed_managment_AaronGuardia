@@ -91,7 +91,7 @@ abstract final class StatisticsCalculator {
           byDay[day] = (byDay[day] ?? zero) + t.amount;
         case TransactionType.income:
           income[m] += t.amount;
-        case TransactionType.transfer || TransactionType.savings:
+        case TransactionType.transfer || TransactionType.savings || TransactionType.savingsWithdrawal:
           break;
       }
     }
