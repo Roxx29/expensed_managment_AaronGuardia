@@ -53,6 +53,7 @@ android {
 
     buildTypes {
         release {
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // The same key must sign every version, or Android refuses to
             // update the installed app (the user would have to uninstall it).
             signingConfig = if (keystorePropertiesFile.exists()) {
