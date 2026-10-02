@@ -27,7 +27,6 @@ class SavingsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => _editGoal(context, ref, null),
-        icon: const Icon(Icons.add_rounded),
         label: Text(context.tr('New goal')),
       ),
       body: progress.when(

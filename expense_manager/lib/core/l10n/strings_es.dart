@@ -172,7 +172,6 @@ const esStrings = <String, String>{
   'Fingerprint or face. Your PIN always works too.': 'Huella o rostro. Tu PIN siempre funciona también.',
   'First charge — past dates are recorded as expenses (up to one year)': 'Primer cobro: las fechas pasadas se registran como gastos (hasta un año)',
   'For your privacy, notifications never show amounts.': 'Por tu privacidad, las notificaciones nunca muestran montos.',
-  'For your subscriptions and bills, at 9:00 AM. Covers the next 30 days and updates each time you open the app.': 'Para tus suscripciones y cuentas, a las 9:00. Cubre los próximos 30 días y se actualiza cada vez que abres la app.',
   'France': 'Francia',
   'Frequency': 'Frecuencia',
   'Future charges stop. Expenses already recorded are kept.': 'Se detienen los cobros futuros. Los gastos ya registrados se conservan.',
@@ -448,6 +447,21 @@ const esStrings = <String, String>{
   'Spending breakdown': 'Distribución del gasto',
   'Total {amount}': 'Total {amount}',
   'Monchi tips': 'Consejos de Monchi',
+  // Notification options
+  'Remind me': 'Recordarme',
+  '1 week before': '1 semana antes',
+  '{days} days before': '{days} días antes',
+  'Reminder time': 'Hora del recordatorio',
+  'For your subscriptions and bills. Covers the next 30 days and updates each time you open the app.': 'Para tus suscripciones y cuentas. Cubre los próximos 30 días y se actualiza cada vez que abres la app.',
+  'Notification sound': 'Sonido de notificaciones',
+  'Phone default': 'Predeterminado del teléfono',
+  'Silent': 'Silencio',
+  'Coin': 'Moneda',
+  'Bell': 'Campana',
+  'Chime': 'Campanita',
+  'Test sound': 'Probar sonido',
+  'This is how your reminders will sound': 'Así sonarán tus recordatorios',
+  '{name} is due in {days} days': '{name} vence en {days} días',
 };
 
 /// Built-in category and payment-method names (own map: 'Home' the tab ≠ 'Home' the category).

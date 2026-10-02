@@ -1,6 +1,20 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+/// Notification sounds. Custom ones are WAVs in android/app/src/main/res/raw
+/// (kept from resource shrinking by res/raw/keep.xml).
+abstract final class NotificationSounds {
+  static const system = 'default';
+  static const silent = 'silent';
+  static const all = [system, 'monchi_coin', 'monchi_bell', 'monchi_chime', silent];
+
+  static String parse(String? value) => all.contains(value) ? value! : system;
+
+  /// Android fixes a channel's sound when it is created, so each sound gets
+  /// its own channel. The system sound keeps the original channel id.
+  static String channelId(String base, String sound) => sound == system ? base : '${base}_$sound';
+}
+
 /// Local notifications. Override `notificationServiceProvider` with a fake in
 /// tests. Implementations never throw: platform errors are swallowed.
 abstract interface class NotificationService {
@@ -14,6 +28,7 @@ abstract interface class NotificationService {
     required String body,
     required String channelId,
     required String channelName,
+    String sound = NotificationSounds.system,
   });
 
   /// Schedules a one-off notification at [when] (an absolute instant).
@@ -24,6 +39,7 @@ abstract interface class NotificationService {
     required DateTime when,
     required String channelId,
     required String channelName,
+    String sound = NotificationSounds.system,
   });
 
   /// Cancels pending notifications whose id is in [first]..[last].
@@ -55,14 +71,20 @@ class LocalNotificationService implements NotificationService {
         }
       }();
 
-  NotificationDetails _details(String channelId, String channelName) => NotificationDetails(
+  // ponytail: custom sounds are Android-only; iOS plays the system sound
+  // (add .caf files to the iOS bundle if the app ships on iPhone).
+  NotificationDetails _details(String channelId, String channelName, String sound) => NotificationDetails(
         android: AndroidNotificationDetails(
-          channelId,
+          NotificationSounds.channelId(channelId, sound),
           channelName,
           // Hide the text on the lock screen.
           visibility: NotificationVisibility.private,
+          playSound: sound != NotificationSounds.silent,
+          sound: sound == NotificationSounds.system || sound == NotificationSounds.silent
+              ? null
+              : RawResourceAndroidNotificationSound(sound),
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(presentSound: sound != NotificationSounds.silent),
       );
 
   @override
@@ -86,10 +108,11 @@ class LocalNotificationService implements NotificationService {
     required String body,
     required String channelId,
     required String channelName,
+    String sound = NotificationSounds.system,
   }) async {
     if (!await _init()) return;
     try {
-      await _plugin.show(id, title, body, _details(channelId, channelName));
+      await _plugin.show(id, title, body, _details(channelId, channelName, sound));
     } on Object {
       // Best effort.
     }
@@ -103,6 +126,7 @@ class LocalNotificationService implements NotificationService {
     required DateTime when,
     required String channelId,
     required String channelName,
+    String sound = NotificationSounds.system,
   }) async {
     if (!await _init()) return;
     try {
@@ -112,7 +136,7 @@ class LocalNotificationService implements NotificationService {
         body,
         // UTC needs no time-zone database and keeps the absolute instant.
         tz.TZDateTime.from(when, tz.UTC),
-        _details(channelId, channelName),
+        _details(channelId, channelName, sound),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     } on Object {

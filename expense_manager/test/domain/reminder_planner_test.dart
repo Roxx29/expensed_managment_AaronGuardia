@@ -24,35 +24,53 @@ void main() {
 
   group('ReminderPlanner', () {
     test('day before at 9:00, within 30 days, no amounts', () {
-      final plan = ReminderPlanner.plan(items: [item('netflix')], now: now, timing: ReminderTiming.dayBefore);
+      final plan = ReminderPlanner.plan(items: [item('netflix')], now: now, daysBefore: {1});
       expect(plan, hasLength(1));
       expect(plan.single.when, DateTime(2026, 10, 14, 9));
       expect(plan.single.id, ReminderPlanner.firstId);
       expect(plan.single.body, '{name} is due tomorrow');
-      expect(plan.single.args, {'name': 'netflix'});
+      expect(plan.single.args['name'], 'netflix');
     });
 
     test('same day; skips times already past and inactive items', () {
       final plan = ReminderPlanner.plan(
         items: [item('today', anchor: DateTime(2026, 9, 1)), item('off', active: false), item('netflix')],
         now: now,
-        timing: ReminderTiming.sameDay,
+        daysBefore: {0},
       );
       // 'today' is due Oct 1 at 9:00, already past at noon.
       expect(plan.map((n) => n.when), [DateTime(2026, 10, 15, 9)]);
       expect(plan.single.body, '{name} is due today');
     });
 
+    test('several reminders per payment, custom hour, week before', () {
+      final plan = ReminderPlanner.plan(items: [item('netflix')], now: now, daysBefore: {7, 1}, hour: 20);
+      expect(plan.map((n) => n.when), [DateTime(2026, 10, 8, 20), DateTime(2026, 10, 14, 20)]);
+      expect(plan.first.body, '{name} is due in {days} days');
+      expect(plan.first.args['days'], '7');
+      // Nov 15's reminders (Nov 8, Nov 14) are past the 30-day horizon.
+    });
+
+    test('settings parsing keeps old values working', () {
+      expect(ReminderPlanner.parseDays(null), {1});
+      expect(ReminderPlanner.parseDays('day_before'), {1});
+      expect(ReminderPlanner.parseDays('same_day'), {0});
+      expect(ReminderPlanner.parseDays('7,1,99'), {7, 1});
+      expect(ReminderPlanner.encodeDays({7, 0, 3}), '0,3,7');
+      expect(ReminderPlanner.parseHour('20'), 20);
+      expect(ReminderPlanner.parseHour('25'), ReminderPlanner.defaultHour);
+    });
+
     test('sorted, capped and with deterministic ids in range', () {
       final items = [item('b'), item('daily', frequency: Frequency.daily, anchor: DateTime(2026, 1, 1))];
-      final plan = ReminderPlanner.plan(items: items, now: now, timing: ReminderTiming.dayBefore);
+      final plan = ReminderPlanner.plan(items: items, now: now, daysBefore: {1});
       expect(plan, hasLength(ReminderPlanner.maxCount));
       expect(plan.map((n) => n.id), List.generate(ReminderPlanner.maxCount, (i) => ReminderPlanner.firstId + i));
       expect(plan.first.when, DateTime(2026, 10, 2, 9));
       for (var i = 1; i < plan.length; i++) {
         expect(plan[i].when.isBefore(plan[i - 1].when), isFalse);
       }
-      final again = ReminderPlanner.plan(items: items.reversed.toList(), now: now, timing: ReminderTiming.dayBefore);
+      final again = ReminderPlanner.plan(items: items.reversed.toList(), now: now, daysBefore: {1});
       expect(again.map((n) => '${n.id}${n.args}'), plan.map((n) => '${n.id}${n.args}'));
     });
   });

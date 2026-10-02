@@ -36,7 +36,7 @@ GoRouter _buildRouter() => GoRouter(
   initialLocation: Routes.dashboard,
   routes: [
     StatefulShellRoute.indexedStack(
-      builder: (context, state, shell) => AdaptiveShell(navigationShell: shell),
+      builder: (context, state, shell) => AdaptiveShell(navigationShell: shell, location: state.uri.path),
       branches: [
         StatefulShellBranch(routes: [
           GoRoute(path: Routes.dashboard, builder: (_, _) => const DashboardScreen()),

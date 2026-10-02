@@ -52,7 +52,6 @@ class RecurringScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => context.push(Routes.newRecurringOfKind(kind.name)),
-        icon: const Icon(Icons.add_rounded),
         label: Text(context.tr('Add')),
       ),
       body: all.when(

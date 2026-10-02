@@ -65,7 +65,6 @@ abstract final class AppTheme {
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: Brand.yellow,
         foregroundColor: Brand.ink,
-        shape: CircleBorder(),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(

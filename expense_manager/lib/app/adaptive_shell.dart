@@ -22,9 +22,14 @@ const _destinations = [
 
 /// Bottom navigation on phones, navigation rail on tablets/landscape.
 class AdaptiveShell extends StatelessWidget {
-  const AdaptiveShell({super.key, required this.navigationShell});
+  const AdaptiveShell({super.key, required this.navigationShell, required this.location});
 
   final StatefulNavigationShell navigationShell;
+
+  /// Current path: the + button shows only on the tabs' main screens.
+  final String location;
+
+  static const _tabRoots = {Routes.dashboard, Routes.transactions, Routes.budgets, Routes.more};
 
   void _onSelect(int index) => navigationShell.goBranch(
         index,
@@ -35,6 +40,8 @@ class AdaptiveShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    // Hidden while typing and on inner screens (they have their own buttons).
+    final showAdd = _tabRoots.contains(location) && MediaQuery.viewInsetsOf(context).bottom == 0;
 
     if (width < Breakpoints.medium) {
       // Figma layout: two tabs, the yellow + button, two tabs. The middle
@@ -45,10 +52,9 @@ class AdaptiveShell extends StatelessWidget {
       return Scaffold(
         body: navigationShell,
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: const Padding(
-          padding: EdgeInsets.only(top: 24),
-          child: _AddButton(),
-        ),
+        floatingActionButton: showAdd
+            ? const Padding(padding: EdgeInsets.only(top: 24), child: _AddButton())
+            : null,
         bottomNavigationBar: NavigationBar(
           selectedIndex: current < gap ? current : current + 1,
           onDestinationSelected: (i) => _onSelect(i < gap ? i : i - 1),
@@ -71,10 +77,9 @@ class AdaptiveShell extends StatelessWidget {
               selectedIndex: navigationShell.currentIndex,
               onDestinationSelected: _onSelect,
               labelType: width >= Breakpoints.large ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-              leading: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: _AddButton(),
-              ),
+              leading: showAdd
+                  ? const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: _AddButton())
+                  : null,
               destinations: [
                 for (final d in _destinations)
                   NavigationRailDestination(
@@ -108,6 +113,7 @@ class _AddButton extends StatelessWidget {
         heroTag: null,
         tooltip: context.tr('Add'),
         elevation: 6,
+        shape: const CircleBorder(),
         onPressed: () => context.push(Routes.newTransaction),
         child: const Icon(Icons.add_rounded, size: 32),
       ),

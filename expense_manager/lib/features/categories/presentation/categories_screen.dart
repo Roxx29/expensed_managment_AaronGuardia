@@ -27,7 +27,6 @@ class CategoriesScreen extends ConsumerWidget {
           ),
           floatingActionButton: FloatingActionButton.extended(
             heroTag: null,
-            icon: const Icon(Icons.add_rounded),
             label: Text(context.tr('New')),
             onPressed: () => DefaultTabController.of(context).index == 0
                 ? _editCategory(context, ref, null)

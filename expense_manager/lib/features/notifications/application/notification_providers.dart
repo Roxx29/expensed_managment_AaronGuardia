@@ -15,6 +15,8 @@ import 'notification_service.dart';
 abstract final class NotificationKeys {
   static const reminders = 'notifications.reminders';
   static const reminderTiming = 'notifications.reminder_timing';
+  static const reminderHour = 'notifications.reminder_hour';
+  static const sound = 'notifications.sound';
   static const budgetAlerts = 'notifications.budget_alerts';
   static const budgetAlertsShown = 'notifications.budget_alerts_shown';
 }
@@ -25,9 +27,6 @@ final notificationServiceProvider = Provider<NotificationService>((ref) => Local
 final notificationSettingProvider = StreamProvider.family<String?, String>(
   (ref, key) => ref.watch(settingsRepositoryProvider).watch(key),
 );
-
-ReminderTiming parseTiming(String? value) =>
-    value == 'same_day' ? ReminderTiming.sameDay : ReminderTiming.dayBefore;
 
 final notificationActionsProvider = Provider<NotificationActions>(NotificationActions.new);
 
@@ -44,10 +43,25 @@ class NotificationActions {
     return true;
   }
 
-  Future<void> setTiming(ReminderTiming timing) => _ref.read(settingsRepositoryProvider).write(
-        NotificationKeys.reminderTiming,
-        timing == ReminderTiming.sameDay ? 'same_day' : 'day_before',
-      );
+  Future<void> setDays(Set<int> days) => _ref
+      .read(settingsRepositoryProvider)
+      .write(NotificationKeys.reminderTiming, ReminderPlanner.encodeDays(days));
+
+  Future<void> setHour(int hour) =>
+      _ref.read(settingsRepositoryProvider).write(NotificationKeys.reminderHour, '$hour');
+
+  Future<void> setSound(String sound) => _ref.read(settingsRepositoryProvider).write(NotificationKeys.sound, sound);
+
+  /// Shows a sample notification with [sound] right away.
+  Future<void> testSound(String sound, {required String title, required String body, required String channelName}) =>
+      _ref.read(notificationServiceProvider).show(
+            id: 3000,
+            title: title,
+            body: body,
+            channelId: _reminderChannel,
+            channelName: channelName,
+            sound: sound,
+          );
 }
 
 /// Watched by the app root: keeps payment reminders scheduled and shows
@@ -85,10 +99,16 @@ final _reminderSyncProvider = FutureProvider<void>((ref) async {
     // Always cancel first: the plan is rebuilt from scratch on every change.
     await service.cancelRange(ReminderPlanner.firstId, ReminderPlanner.lastId);
     if (enabled != 'on') return;
-    final timing = parseTiming(await ref.watch(notificationSettingProvider(NotificationKeys.reminderTiming).future));
+    final days = ReminderPlanner.parseDays(
+      await ref.watch(notificationSettingProvider(NotificationKeys.reminderTiming).future),
+    );
+    final hour = ReminderPlanner.parseHour(
+      await ref.watch(notificationSettingProvider(NotificationKeys.reminderHour).future),
+    );
+    final sound = NotificationSounds.parse(await ref.watch(notificationSettingProvider(NotificationKeys.sound).future));
     final lang = _language(await ref.watch(notificationSettingProvider(SettingKeys.language).future));
     final items = await ref.watch(recurringItemsProvider.future);
-    for (final n in ReminderPlanner.plan(items: items, now: now, timing: timing)) {
+    for (final n in ReminderPlanner.plan(items: items, now: now, daysBefore: days, hour: hour)) {
       // A newer run (settings changed) has cancelled and is rescheduling.
       if (!ref.mounted) return;
       await service.schedule(
@@ -98,6 +118,7 @@ final _reminderSyncProvider = FutureProvider<void>((ref) async {
         when: n.when,
         channelId: _reminderChannel,
         channelName: _tr(lang, 'Payment reminders'),
+        sound: sound,
       );
     }
   } on Object {
@@ -129,6 +150,7 @@ final _budgetAlertSyncProvider = FutureProvider<void>((ref) async {
   try {
     if (await ref.watch(notificationSettingProvider(NotificationKeys.budgetAlerts).future) != 'on') return;
     final lang = _language(await ref.watch(notificationSettingProvider(SettingKeys.language).future));
+    final sound = NotificationSounds.parse(await ref.watch(notificationSettingProvider(NotificationKeys.sound).future));
     final report = BudgetCalculator.monthlyReport(
       budgets: await ref.watch(_currentMonthBudgetsProvider.future),
       transactions: await ref.watch(_currentMonthTransactionsProvider.future),
@@ -161,6 +183,7 @@ final _budgetAlertSyncProvider = FutureProvider<void>((ref) async {
         body: _tr(lang, a.body, {'name': name}),
         channelId: _budgetChannel,
         channelName: _tr(lang, 'Budget alerts'),
+        sound: sound,
       );
     }
   } on Object {
