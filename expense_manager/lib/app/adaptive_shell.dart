@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/l10n/l10n.dart';
 import '../core/layout/breakpoints.dart';
+import 'routes.dart';
 
 class _Destination {
   const _Destination(this.label, this.icon, this.selectedIcon);
@@ -37,14 +38,25 @@ class AdaptiveShell extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
 
     if (width < Breakpoints.medium) {
+      // Figma layout: two tabs, the yellow + button, then the rest. The
+      // middle slot is an empty, disabled destination the button sits over.
+      const gap = 2;
+      final current = navigationShell.currentIndex;
       return Scaffold(
         body: navigationShell,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: const Padding(
+          padding: EdgeInsets.only(top: 24),
+          child: _AddButton(),
+        ),
         bottomNavigationBar: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: _onSelect,
+          selectedIndex: current < gap ? current : current + 1,
+          onDestinationSelected: (i) => _onSelect(i < gap ? i : i - 1),
           destinations: [
-            for (final d in _destinations)
+            for (final (i, d) in _destinations.indexed) ...[
+              if (i == gap) const NavigationDestination(enabled: false, icon: SizedBox.shrink(), label: ''),
               NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: context.tr(d.label)),
+            ],
           ],
         ),
       );
@@ -59,6 +71,10 @@ class AdaptiveShell extends StatelessWidget {
               selectedIndex: navigationShell.currentIndex,
               onDestinationSelected: _onSelect,
               labelType: width >= Breakpoints.large ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+              leading: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: _AddButton(),
+              ),
               destinations: [
                 for (final d in _destinations)
                   NavigationRailDestination(
@@ -72,6 +88,28 @@ class AdaptiveShell extends StatelessWidget {
             Expanded(child: navigationShell),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Yellow "+" from the logo palette; pops in with a small bounce.
+class _AddButton extends StatelessWidget {
+  const _AddButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.6, end: 1),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      child: FloatingActionButton(
+        heroTag: null,
+        tooltip: context.tr('Add'),
+        elevation: 6,
+        onPressed: () => context.push(Routes.newTransaction),
+        child: const Icon(Icons.add_rounded, size: 32),
       ),
     );
   }

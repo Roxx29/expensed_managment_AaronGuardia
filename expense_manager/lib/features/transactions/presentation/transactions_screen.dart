@@ -15,7 +15,6 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/transaction_tile.dart';
 import '../application/transaction_providers.dart';
-import 'add_transaction_button.dart';
 
 /// Transaction history with search, filters and sorting.
 class TransactionsScreen extends ConsumerStatefulWidget {
@@ -62,7 +61,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           ),
         ],
       ),
-      floatingActionButton: const AddTransactionButton(),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(

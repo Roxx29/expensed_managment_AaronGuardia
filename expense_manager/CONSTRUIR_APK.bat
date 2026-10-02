@@ -1,11 +1,11 @@
 @echo off
 setlocal
-title Expense Manager - Construir APK
+title Monchi - Construir APK
 cd /d "%~dp0"
 
 echo.
 echo  ===============================================
-echo    Expense Manager - construyendo el APK
+echo    Monchi - construyendo el APK
 echo  ===============================================
 echo.
 

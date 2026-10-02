@@ -120,7 +120,7 @@ class BackupActions {
 
   Future<void> _share(String path, String mimeType, Rect? origin) => SharePlus.instance.share(ShareParams(
         files: [XFile(path, mimeType: mimeType)],
-        subject: 'Expense Manager',
+        subject: 'Monchi',
         sharePositionOrigin: origin,
       ));
 

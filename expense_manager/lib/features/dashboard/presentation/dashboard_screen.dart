@@ -15,7 +15,6 @@ import '../../../app/routes.dart';
 import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/transaction_tile.dart';
-import '../../transactions/presentation/add_transaction_button.dart';
 import '../application/dashboard_providers.dart';
 import 'insight_text.dart';
 
@@ -27,7 +26,6 @@ class DashboardScreen extends ConsumerWidget {
     final snapshot = ref.watch(dashboardProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('Overview'))),
-      floatingActionButton: const AddTransactionButton(),
       body: snapshot.when(
         // Keep showing the previous snapshot while data changes recompute it.
         skipLoadingOnReload: true,

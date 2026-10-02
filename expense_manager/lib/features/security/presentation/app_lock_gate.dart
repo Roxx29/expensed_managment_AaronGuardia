@@ -100,7 +100,7 @@ class _PrivacyCover extends StatelessWidget {
           children: [
             Icon(Icons.lock_rounded, size: 56, color: scheme.primary),
             const SizedBox(height: 12),
-            Text('Expense Manager', style: Theme.of(context).textTheme.titleLarge),
+            Text('Monchi', style: Theme.of(context).textTheme.titleLarge),
           ],
         ),
       ),
@@ -199,7 +199,7 @@ class _LockScreenState extends ConsumerState<_LockScreen> {
 
   Future<void> _biometrics() async {
     if (_busy) return;
-    await ref.read(appLockProvider.notifier).unlockWithBiometrics(context.tr('Unlock Expense Manager'));
+    await ref.read(appLockProvider.notifier).unlockWithBiometrics(context.tr('Unlock Monchi'));
   }
 
   String _format(Duration d) =>

@@ -362,7 +362,7 @@ const esStrings = <String, String>{
   'The target date has passed': 'La fecha meta ya pasó',
   'This backup was made with a newer version of the app. Update the app first.': 'Esta copia de seguridad se creó con una versión más reciente de la app. Actualiza la app primero.',
   'This file could not be read as CSV. Maximum 5 MB and 20,000 rows.': 'No se pudo leer el archivo como CSV. Máximo 5 MB y 20.000 filas.',
-  'This file is not an Expense Manager backup.': 'Este archivo no es una copia de seguridad de Expense Manager.',
+  'This file is not a Monchi backup.': 'Este archivo no es una copia de seguridad de Monchi.',
   'This item no longer exists.': 'Este elemento ya no existe.',
   'this month': 'este mes',
   'This transaction no longer exists.': 'Este movimiento ya no existe.',
@@ -384,7 +384,7 @@ const esStrings = <String, String>{
   'United Kingdom': 'Reino Unido',
   'United States': 'Estados Unidos',
   'Unlock': 'Desbloquear',
-  'Unlock Expense Manager': 'Desbloquear Expense Manager',
+  'Unlock Monchi': 'Desbloquear Monchi',
   'Unlock with biometrics': 'Desbloquear con biometría',
   'Upcoming payment': 'Próximo pago',
   'Upcoming payments': 'Próximos pagos',
@@ -438,6 +438,16 @@ const esStrings = <String, String>{
   '{pct}% more than {month}': '{pct}% más que en {month}',
   '{saved} of {target}': '{saved} de {target}',
   '{valid} rows ready, {skipped} skipped (invalid date or amount)': '{valid} filas listas, {skipped} omitidas (fecha o monto no válido)',
+  // Monchi redesign
+  'Hi 👋': 'Hola 👋',
+  'Hi, {name} 👋': 'Hola, {name} 👋',
+  'Your {month} summary': 'Resumen de {month}',
+  'You are saving {percent}% of your income this month': 'Estás ahorrando el {percent}% de tus ingresos este mes',
+  'You are spending more than you earn this month': 'Este mes estás gastando más de lo que ganas',
+  'Quick actions': 'Acciones rápidas',
+  'Spending breakdown': 'Distribución del gasto',
+  'Total {amount}': 'Total {amount}',
+  'Monchi tips': 'Consejos de Monchi',
 };
 
 /// Built-in category and payment-method names (own map: 'Home' the tab ≠ 'Home' the category).

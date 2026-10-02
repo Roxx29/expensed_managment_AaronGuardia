@@ -14,7 +14,7 @@ import '../application/backup_providers.dart';
 
 String _errorMessage(BuildContext context, Object error) => switch (error) {
       BackupException(error: BackupError.tooLarge) => context.tr('The file is too large to be a backup.'),
-      BackupException(error: BackupError.notABackup) => context.tr('This file is not an Expense Manager backup.'),
+      BackupException(error: BackupError.notABackup) => context.tr('This file is not a Monchi backup.'),
       BackupException(error: BackupError.newerVersion) =>
         context.tr('This backup was made with a newer version of the app. Update the app first.'),
       BackupException(error: BackupError.corrupted) => context.tr('The backup file is damaged or incomplete.'),

@@ -5,7 +5,7 @@
     <!-- App lock with fingerprint / face. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <application
-        android:label="Expense Manager"
+        android:label="Monchi"
         android:name="${applicationName}"
         android:allowBackup="false"
         android:fullBackupContent="false"

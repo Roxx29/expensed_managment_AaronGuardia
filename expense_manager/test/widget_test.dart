@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' show DatabaseConnection;
 import 'package:drift/native.dart';
 import 'package:expense_manager/app/app.dart';
 import 'package:expense_manager/data/database/app_database.dart';
+import 'package:expense_manager/features/profile/application/profile_providers.dart';
 import 'package:expense_manager/shared/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,11 @@ Future<AppDatabase> _pumpApp(WidgetTester tester, Size size) async {
 
   final db = AppDatabase(DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true));
   await tester.pumpWidget(ProviderScope(
-    overrides: [appDatabaseProvider.overrideWithValue(db)],
+    overrides: [
+      appDatabaseProvider.overrideWithValue(db),
+      // No path_provider plugin in widget tests.
+      avatarFileProvider.overrideWith((ref) async => null),
+    ],
     child: const ExpenseManagerApp(),
   ));
   await tester.pumpAndSettle();
@@ -90,7 +95,7 @@ void main() {
   testWidgets('adding an expense shows it on the dashboard and in history', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
 
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.byTooltip('Add'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'Amount'), '12.50');
     await tester.enterText(find.widgetWithText(TextFormField, 'Description'), 'Lunch');
@@ -110,7 +115,7 @@ void main() {
   testWidgets('invalid amount shows a validation error', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
 
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.byTooltip('Add'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'Amount'), '0');
     await tester.tap(find.text('Save'));

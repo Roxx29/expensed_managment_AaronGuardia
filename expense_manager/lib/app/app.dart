@@ -24,7 +24,7 @@ class ExpenseManagerApp extends ConsumerWidget {
     // Keeps payment reminders and budget alerts in sync (no-op when off).
     ref.watch(notificationSyncProvider);
     return MaterialApp.router(
-      title: 'Expense Manager',
+      title: 'Monchi',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

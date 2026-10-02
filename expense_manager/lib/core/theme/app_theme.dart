@@ -1,15 +1,41 @@
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
-/// Brand seed. All Material 3 roles derive from it for consistent contrast.
-const _seed = Color(0xFF0F766E);
+/// Monchi brand colors taken from the logo and the Figma design.
+abstract final class Brand {
+  /// Logo yellow: main call to action (center + button, highlights).
+  static const yellow = Color(0xFFFFC800);
+
+  /// "Azul tinta": balance card, splash, text on yellow.
+  static const ink = Color(0xFF131B2E);
+  static const inkLight = Color(0xFF283044);
+  /// Figma "mint": Material 3 seed, every color role derives from it.
+  static const mint = Color(0xFF14B8A6);
+  static const coral = Color(0xFFFD7958);
+}
 
 abstract final class AppTheme {
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
+    final light = brightness == Brightness.light;
+    final base = ColorScheme.fromSeed(seedColor: Brand.mint, brightness: brightness);
+    // Light surfaces copied from the Figma design (lavender-tinted).
+    final scheme = light
+        ? base.copyWith(
+            primary: const Color(0xFF006B5F),
+            surface: const Color(0xFFFAF8FF),
+            onSurface: Brand.ink,
+            onSurfaceVariant: const Color(0xFF3C4947),
+            surfaceContainerLowest: Colors.white,
+            surfaceContainerLow: const Color(0xFFF2F3FF),
+            surfaceContainer: const Color(0xFFEAEDFF),
+            surfaceContainerHigh: const Color(0xFFDAE2FD),
+            surfaceContainerHighest: const Color(0xFFDAE2FD),
+          )
+        : base.copyWith(surface: const Color(0xFF0D1220));
+    final radius = BorderRadius.circular(20);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -17,15 +43,55 @@ abstract final class AppTheme {
       extensions: [
         brightness == Brightness.light ? FinanceColors.light : FinanceColors.dark,
       ],
+      appBarTheme: AppBarTheme(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+              fontSize: 20,
+          fontWeight: FontWeight.w800,
+          color: scheme.onSurface,
+        ),
+      ),
       cardTheme: CardThemeData(
-        elevation: 0,
+        elevation: light ? 1 : 0,
+        shadowColor: Colors.black.withValues(alpha: 0.25),
+        surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
-        color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        color: light ? scheme.surfaceContainerLowest : scheme.surfaceContainerLow,
+        shape: RoundedRectangleBorder(borderRadius: radius),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Brand.yellow,
+        foregroundColor: Brand.ink,
+        shape: CircleBorder(),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: light ? Colors.white : scheme.surfaceContainerLow,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      ),
+      chipTheme: ChipThemeData(
+        shape: const StadiumBorder(),
+        side: BorderSide.none,
+        backgroundColor: light ? Colors.white : scheme.surfaceContainerLow,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        indicatorColor: scheme.secondaryContainer,
+        backgroundColor: light ? Colors.white : scheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: scheme.primaryContainer,
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.primary),
+        ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -51,7 +117,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
   final Color warning;
 
   static const light = FinanceColors(
-    income: Color(0xFF1B7F3B),
+    income: Color(0xFF006E2F),
     expense: Color(0xFFC62828),
     warning: Color(0xFFB26A00),
   );

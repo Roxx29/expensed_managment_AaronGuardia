@@ -34,20 +34,28 @@ class TransactionTile extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       contentPadding: onTap == null ? EdgeInsets.zero : null,
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.15),
-        child: Icon(iconForKey(category?.iconKey ?? ''), color: color, size: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(iconForKey(category?.iconKey ?? ''), color: color, size: 22),
       ),
       title: Text(
         tx.description.isNotEmpty ? tx.description : (category?.label(context) ?? _typeLabel(context, tx.type)),
         overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(subtitle, overflow: TextOverflow.ellipsis),
       trailing: Text(
         '${isIncome ? '+' : '−'}${tx.amount.format()}',
         style: TextStyle(
           color: isIncome ? finance.income : finance.expense,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
+          fontSize: 15,
         ),
       ),
     );
