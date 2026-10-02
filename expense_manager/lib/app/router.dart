@@ -48,13 +48,11 @@ GoRouter _buildRouter() => GoRouter(
           GoRoute(path: Routes.budgets, builder: (_, _) => const BudgetsScreen()),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(path: Routes.statistics, builder: (_, _) => const StatisticsScreen()),
-        ]),
-        StatefulShellBranch(routes: [
           GoRoute(
             path: Routes.more,
             builder: (_, _) => const MoreScreen(),
             routes: [
+              GoRoute(path: 'statistics', builder: (_, _) => const StatisticsScreen()),
               GoRoute(path: 'settings', builder: (_, _) => const SettingsScreen()),
               GoRoute(
                 path: 'subscriptions',

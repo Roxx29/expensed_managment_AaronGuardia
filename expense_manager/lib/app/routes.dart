@@ -4,7 +4,7 @@ abstract final class Routes {
   static const dashboard = '/';
   static const transactions = '/transactions';
   static const budgets = '/budgets';
-  static const statistics = '/statistics';
+  static const statistics = '/more/statistics';
   static const more = '/more';
   static const settings = '/more/settings';
   static const subscriptions = '/more/subscriptions';

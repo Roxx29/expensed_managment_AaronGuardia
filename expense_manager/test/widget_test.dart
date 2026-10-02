@@ -129,6 +129,8 @@ void main() {
   testWidgets('statistics: empty year renders chart and empty states without overflow', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
 
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Statistics'));
     await tester.pumpAndSettle();
 

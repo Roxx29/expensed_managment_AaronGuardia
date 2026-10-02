@@ -17,7 +17,6 @@ const _destinations = [
   _Destination('Home', Icons.space_dashboard_outlined, Icons.space_dashboard_rounded),
   _Destination('Transactions', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
   _Destination('Budgets', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded),
-  _Destination('Statistics', Icons.insights_outlined, Icons.insights_rounded),
   _Destination('More', Icons.menu_rounded, Icons.menu_open_rounded),
 ];
 
@@ -38,8 +37,9 @@ class AdaptiveShell extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
 
     if (width < Breakpoints.medium) {
-      // Figma layout: two tabs, the yellow + button, then the rest. The
-      // middle slot is an empty, disabled destination the button sits over.
+      // Figma layout: two tabs, the yellow + button, two tabs. The middle
+      // slot is an empty, disabled destination the button sits over, so the
+      // tab count must stay even to keep it centered.
       const gap = 2;
       final current = navigationShell.currentIndex;
       return Scaffold(

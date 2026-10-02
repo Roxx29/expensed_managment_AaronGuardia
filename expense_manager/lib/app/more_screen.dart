@@ -9,6 +9,7 @@ class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
   static const _entries = [
+    (Icons.insights_rounded, 'Statistics', Routes.statistics),
     (Icons.auto_awesome_rounded, 'Assistant', Routes.assistant),
     (Icons.autorenew_rounded, 'Subscriptions', Routes.subscriptions),
     (Icons.event_repeat_rounded, 'Recurring expenses', Routes.recurring),
