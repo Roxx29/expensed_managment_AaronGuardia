@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/l10n/l10n.dart';
 import '../core/layout/breakpoints.dart';
+import '../core/theme/app_theme.dart';
 import 'routes.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -33,6 +34,12 @@ class MoreScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: Breakpoints.expanded),
           child: ListView(
             children: [
+              ListTile(
+                leading: const Icon(Icons.workspace_premium_rounded, color: Brand.yellow),
+                title: Text(context.tr('Monchi Premium')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push(Routes.premium),
+              ),
               for (final (icon, label, route) in _entries)
                 ListTile(
                   leading: Icon(icon),

@@ -11,6 +11,8 @@ import '../../../domain/finance/budget_calculator.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/budget_providers.dart';
 
 class BudgetsScreen extends ConsumerWidget {
@@ -207,6 +209,7 @@ class _CategoryBudgetsCard extends ConsumerWidget {
     }
 
     Future<void> add() async {
+      if (!withinFreeLimit(context, ref, report.byCategory.length, FreeLimits.categoryBudgets)) return;
       final available = categories.values
           .where((c) => !c.archived && c.appliesTo(TransactionType.expense) && !report.byCategory.containsKey(c.id))
           .toList()

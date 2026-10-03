@@ -11,6 +11,7 @@ import '../features/categories/presentation/categories_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/import/presentation/import_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/premium/presentation/paywall_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recurring/presentation/recurring_form_screen.dart';
 import '../features/recurring/presentation/recurring_screen.dart';
@@ -68,13 +69,23 @@ GoRouter _buildRouter() => GoRouter(
               GoRoute(path: 'savings', builder: (_, _) => const SavingsScreen()),
               GoRoute(path: 'security', builder: (_, _) => const SecurityScreen()),
               GoRoute(path: 'notifications', builder: (_, _) => const NotificationsScreen()),
-              GoRoute(path: 'import', builder: (_, _) => const ImportScreen()),
-              GoRoute(path: 'assistant', builder: (_, _) => const AssistantScreen()),
+              GoRoute(
+                path: 'import',
+                builder: (context, _) => PremiumGate(
+                  title: context.tr('Import bank statement'),
+                  child: const ImportScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'assistant',
+                builder: (context, _) => PremiumGate(title: context.tr('Assistant'), child: const AssistantScreen()),
+              ),
             ],
           ),
         ]),
       ],
     ),
+    GoRoute(path: Routes.premium, builder: (_, _) => const PaywallScreen()),
     // `new` is matched before `:id` because routes are checked in order.
     GoRoute(
       path: Routes.newTransaction,

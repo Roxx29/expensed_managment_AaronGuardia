@@ -10,6 +10,7 @@ import '../../../data/database/app_database.dart';
 import '../../../domain/backup/backup_policy.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/backup_providers.dart';
 
 String _errorMessage(BuildContext context, Object error) => switch (error) {
@@ -132,7 +133,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         ButtonSegment(value: BackupFrequency.monthly, label: Text(context.tr('Monthly'))),
                       ],
                       selected: {frequency},
-                      onSelectionChanged: (s) => actions.setFrequency(s.first),
+                      onSelectionChanged: (s) {
+                        if (s.first == BackupFrequency.off || requirePremium(context, ref)) {
+                          actions.setFrequency(s.first);
+                        }
+                      },
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -202,6 +207,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                       await actions.export(b, origin: _shareOrigin());
                                       return null;
                                     case 'exportEncrypted':
+                                      if (!requirePremium(context, ref)) return null;
                                       final passphrase = await _askPassphrase(confirm: true);
                                       if (passphrase == null || !mounted) return null;
                                       await actions.exportEncrypted(b, passphrase, origin: _shareOrigin());
@@ -240,6 +246,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       onPressed: _busy
                           ? null
                           : () {
+                              if (!requirePremium(context, ref)) return;
                               // Labels resolved now, in the current UI language (no context after awaits).
                               final categories = {for (final c in categoryById.values) c.id: c.label(context)};
                               final methods = {for (final m in paymentMethodById.values) m.id: m.label(context)};

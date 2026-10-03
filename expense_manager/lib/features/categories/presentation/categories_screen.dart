@@ -7,6 +7,8 @@ import '../../../core/utils/ids.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/catalog_providers.dart';
 
 /// Manage custom categories and payment methods.
@@ -28,9 +30,18 @@ class CategoriesScreen extends ConsumerWidget {
           floatingActionButton: FloatingActionButton.extended(
             heroTag: null,
             label: Text(context.tr('New')),
-            onPressed: () => DefaultTabController.of(context).index == 0
-                ? _editCategory(context, ref, null)
-                : _editPaymentMethod(context, ref, null),
+            onPressed: () {
+              if (DefaultTabController.of(context).index != 0) {
+                _editPaymentMethod(context, ref, null);
+              } else if (withinFreeLimit(
+                context,
+                ref,
+                (ref.read(categoriesProvider).value ?? const []).where((c) => !c.isDefault).length,
+                FreeLimits.customCategories,
+              )) {
+                _editCategory(context, ref, null);
+              }
+            },
           ),
           body: Align(
             alignment: Alignment.topCenter,

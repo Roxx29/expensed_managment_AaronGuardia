@@ -38,6 +38,9 @@ dependencies:
   timezone: ^0.10.1
   # Phase 6: on-device receipt text recognition (no network)
   google_mlkit_text_recognition: ^0.15.0
+  # Monchi Premium: Google Play subscriptions + lifetime purchase
+  in_app_purchase: ^3.3.1
+  in_app_purchase_android: ^0.5.3
 
 dev_dependencies:
   flutter_test:

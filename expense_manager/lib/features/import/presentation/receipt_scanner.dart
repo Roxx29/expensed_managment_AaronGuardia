@@ -12,6 +12,7 @@ import '../../../core/l10n/l10n.dart';
 import '../../../core/money/currency.dart';
 import '../../../domain/import/receipt_parser.dart';
 import '../../../shared/providers/providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 
 /// Lets the user photograph or pick a receipt and reads it on-device.
@@ -91,6 +92,7 @@ class ScanReceiptButton extends ConsumerWidget {
         tooltip: context.tr('Scan receipt'),
         icon: const Icon(Icons.document_scanner_rounded),
         onPressed: () async {
+          if (!requirePremium(context, ref)) return;
           final draft = await scanReceipt(
             context,
             ref.read(currencyProvider),

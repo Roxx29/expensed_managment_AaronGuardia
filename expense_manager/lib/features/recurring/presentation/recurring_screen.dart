@@ -11,6 +11,8 @@ import '../../../domain/finance/recurrence.dart';
 import '../../../domain/finance/recurring_poster.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/recurring_providers.dart';
 
 String frequencyLabel(BuildContext context, RecurrenceRule rule) {
@@ -51,7 +53,11 @@ class RecurringScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(_isSubscription ? context.tr('Subscriptions') : context.tr('Recurring expenses'))),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
-        onPressed: () => context.push(Routes.newRecurringOfKind(kind.name)),
+        onPressed: () {
+          if (withinFreeLimit(context, ref, all.value?.length ?? 0, FreeLimits.recurringItems)) {
+            context.push(Routes.newRecurringOfKind(kind.name));
+          }
+        },
         label: Text(context.tr('Add')),
       ),
       body: all.when(

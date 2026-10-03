@@ -6,6 +6,7 @@ import '../core/l10n/l10n.dart';
 import '../core/theme/app_theme.dart';
 import '../features/backup/application/backup_providers.dart';
 import '../features/notifications/application/notification_providers.dart';
+import '../features/premium/application/premium_providers.dart';
 import '../features/recurring/application/recurring_providers.dart';
 import '../features/security/presentation/app_lock_gate.dart';
 import '../features/settings/application/settings_providers.dart';
@@ -23,6 +24,8 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(autoBackupProvider);
     // Keeps payment reminders and budget alerts in sync (no-op when off).
     ref.watch(notificationSyncProvider);
+    // Listens for Google Play purchases from launch (none would be missed).
+    ref.listen(premiumProvider, (_, _) {});
     return MaterialApp.router(
       title: 'Monchi',
       debugShowCheckedModeBanner: false,

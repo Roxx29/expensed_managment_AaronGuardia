@@ -12,6 +12,8 @@ import '../../../domain/finance/savings_calculator.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/savings_providers.dart';
 
 class SavingsScreen extends ConsumerWidget {
@@ -26,7 +28,10 @@ class SavingsScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(context.tr('Savings goals'))),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
-        onPressed: () => _editGoal(context, ref, null),
+        onPressed: () {
+          final count = progress.value?.length ?? 0;
+          if (withinFreeLimit(context, ref, count, FreeLimits.savingsGoals)) _editGoal(context, ref, null);
+        },
         label: Text(context.tr('New goal')),
       ),
       body: progress.when(

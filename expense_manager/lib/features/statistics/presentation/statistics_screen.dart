@@ -11,6 +11,8 @@ import '../../../domain/finance/statistics_calculator.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/statistics_providers.dart';
 
 class StatisticsScreen extends ConsumerWidget {
@@ -25,7 +27,8 @@ class StatisticsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(context.tr('Statistics')),
         actions: [
-          if (view.value case final v?)
+          // Free plan: current year only.
+          if (view.value case final v? when ref.watch(premiumProvider))
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: DropdownButton<int>(
@@ -83,7 +86,13 @@ class _StatisticsBody extends ConsumerWidget {
 
     final highestCategory = stats.highestCategory;
     final selectedYearIndex = view.history.keys.toList().indexOf(stats.year);
-    final secondary = <Widget>[
+    final secondary = !ref.watch(premiumProvider)
+        ? <Widget>[
+            PremiumLockCard(
+              message: context.tr('See yearly highlights, spending by category and your history with Monchi Premium.'),
+            ),
+          ]
+        : <Widget>[
       SectionCard(
         title: context.tr('Highlights {year}', {'year': stats.year}),
         child: stats.highestDay == null

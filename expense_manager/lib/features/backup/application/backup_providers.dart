@@ -15,6 +15,7 @@ import '../../../data/database/app_database.dart';
 import '../../../domain/backup/backup_policy.dart';
 import '../../../domain/export/csv_export.dart';
 import '../../../shared/providers/providers.dart';
+import '../../premium/application/premium_providers.dart';
 
 const _frequencyKey = 'backup.frequency';
 
@@ -46,6 +47,8 @@ final backupFrequencyProvider = StreamProvider<BackupFrequency>(
 // ponytail: checked on launch only; a background job (WorkManager/BGTask) is
 // needed only if users keep the app open for days.
 final autoBackupProvider = FutureProvider<bool>((ref) async {
+  // Premium feature: a lapsed subscription stops automatic backups.
+  if (!ref.watch(premiumProvider)) return false;
   final service = ref.watch(backupServiceProvider);
   final frequency = await ref.watch(backupFrequencyProvider.future);
   try {
