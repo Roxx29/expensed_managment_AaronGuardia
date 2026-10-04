@@ -7,11 +7,13 @@ import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/currency.dart';
 import '../../../core/money/money.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/ids.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
+import '../../../shared/widgets/motion.dart';
 import '../../import/presentation/receipt_scanner.dart';
 import '../application/transaction_providers.dart';
 
@@ -322,11 +324,25 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     final messenger = ScaffoldMessenger.of(context);
     final savedText = _isEditing ? context.tr('Changes saved') : context.tr('Transaction added');
     final failedText = context.tr('Could not save. Please check the values.');
+    final burstText = isIncome
+        ? context.tr('Income saved: {amount}', {'amount': amount.format()})
+        : context.tr('Expense saved: {amount}', {'amount': amount.format()});
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final finance = FinanceColors.of(context);
     try {
       await ref.read(transactionActionsProvider).save(tx);
       if (!mounted) return;
       context.pop();
-      messenger.showSnackBar(SnackBar(content: Text(savedText)));
+      if (_isEditing) {
+        messenger.showSnackBar(SnackBar(content: Text(savedText)));
+      } else {
+        showSuccessBurst(
+          overlay,
+          message: burstText,
+          icon: isIncome ? Icons.south_west_rounded : Icons.check_rounded,
+          color: isIncome ? finance.income : Brand.mint,
+        );
+      }
     } on Object {
       // Details are not shown: they could contain user data.
       if (mounted) setState(() => _saving = false);

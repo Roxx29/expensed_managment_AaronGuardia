@@ -14,9 +14,17 @@ class Gift {
   final bool revoked;
 }
 
-/// Whether any gift is in force. A blocked user gets none.
-bool giftPremiumActive(Iterable<Gift> gifts, {required bool blocked, required DateTime now}) =>
-    !blocked && gifts.any((g) => !g.revoked && (g.until == null || now.isBefore(g.until!)));
+/// The gift in force that lasts longest (forever wins); null when none.
+/// A blocked user gets none.
+Gift? bestGift(Iterable<Gift> gifts, {required bool blocked, required DateTime now}) {
+  if (blocked) return null;
+  Gift? best;
+  for (final g in gifts) {
+    if (g.revoked || (g.until != null && !now.isBefore(g.until!))) continue;
+    if (best == null || g.until == null || (best.until != null && g.until!.isAfter(best.until!))) best = g;
+  }
+  return best;
+}
 
 /// Codes are typed by hand: case and spaces don't matter.
 String normalizeCode(String code) => code.trim().toUpperCase();

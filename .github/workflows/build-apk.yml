@@ -1,6 +1,7 @@
-# Builds the Android APK on every push to main and publishes it in GitHub
-# Releases. Download link that always points to the newest build:
+# Builds the Android APK (sideload) and the App Bundle (Google Play) on every
+# push to main and publishes both in GitHub Releases. Newest builds:
 #   https://github.com/<user>/<repo>/releases/latest/download/ExpenseManager.apk
+#   https://github.com/<user>/<repo>/releases/latest/download/Monchi.aab
 name: Build APK
 
 on:
@@ -76,15 +77,25 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
           printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' \
             "$STORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+          # Upload-key fingerprints for Firebase / Google sign-in (public values).
+          {
+            echo '### Upload key fingerprints'
+            echo '```'
+            keytool -list -v -keystore android/app/upload-keystore.jks -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | grep -E 'SHA1:|SHA256:' || echo 'keytool could not read the key'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Warn if unsigned
         if: env.HAS_SIGNING_KEY != 'true'
         run: echo "::warning::No signing secrets. The APK uses a temporary key, so it cannot update a previous install."
 
-      - name: Build APK
+      - name: Build APK and App Bundle
         run: |
-          flutter build apk --release --build-number=${{ github.run_number }}
+          ARGS="--release --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }}"
+          flutter build apk $ARGS
           cp build/app/outputs/flutter-apk/app-release.apk ExpenseManager.apk
+          flutter build appbundle $ARGS
+          cp build/app/outputs/bundle/release/app-release.aab Monchi.aab
 
       - name: Remove signing files
         if: always()
@@ -92,8 +103,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ExpenseManager-apk
-          path: expense_manager/ExpenseManager.apk
+          name: Monchi-builds
+          path: |
+            expense_manager/ExpenseManager.apk
+            expense_manager/Monchi.aab
 
       - name: Publish release
         # Branch runs (manual "Run workflow") only check the build.
@@ -101,10 +114,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Expense Manager — build ${{ github.run_number }}
+          name: Monchi — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          files: expense_manager/ExpenseManager.apk
+          files: |
+            expense_manager/ExpenseManager.apk
+            expense_manager/Monchi.aab
           body: |
             Download **ExpenseManager.apk**, open it on your Android phone and allow "install unknown apps".
+            **Monchi.aab** is for Google Play Console (Internal testing → Create new release → upload).
             Commit: ${{ github.sha }}

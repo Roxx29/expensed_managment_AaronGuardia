@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import '../../../domain/premium/premium_status.dart';
 import 'gift_providers.dart';
 
 /// Google Play product ids. Create them with these exact ids in Play Console:
@@ -34,32 +36,76 @@ bool grantsPremium(PurchaseDetails p) =>
 const _cacheKey = 'premium.active';
 const _storage = FlutterSecureStorage(aOptions: AndroidOptions());
 
-/// Whether Monchi Premium is unlocked: bought on Google Play or given from the
-/// admin panel. Always false off Android (tests, iOS).
-final premiumProvider = Provider<bool>(
-  (ref) => ref.watch(playPremiumProvider) || (ref.watch(giftPremiumProvider).value ?? false),
-);
+/// What the user has (plan, end or renewal date), or null on the free plan.
+/// Always null off Android (tests, iOS).
+final premiumStatusProvider = Provider<PremiumStatus?>((ref) {
+  final gift = ref.watch(giftPremiumProvider).value;
+  // Google Play is what the user pays for and manages, so it is shown first.
+  return ref.watch(playPremiumProvider) ?? (gift == null ? null : PremiumStatus.gift(gift));
+});
 
-/// Bought on Google Play.
+/// Whether Monchi Premium is unlocked: bought on Google Play or given from the
+/// admin panel.
+final premiumProvider = Provider<bool>((ref) => ref.watch(premiumStatusProvider) != null);
+
+/// Bought on Google Play (null = nothing active).
 // ponytail: client-side check only, no receipt verification server; add Play
 // Developer API verification when the app gets a backend.
-final playPremiumProvider = NotifierProvider<PremiumNotifier, bool>(PremiumNotifier.new);
+final playPremiumProvider = NotifierProvider<PremiumNotifier, PremiumStatus?>(PremiumNotifier.new);
 
-class PremiumNotifier extends Notifier<bool> {
+/// The plan a Google Play product id unlocks.
+PremiumPlan planOf(String productId) => switch (productId) {
+      monthlyProductId => PremiumPlan.monthly,
+      yearlyProductId => PremiumPlan.yearly,
+      lifetimeProductId => PremiumPlan.lifetime,
+      _ => PremiumPlan.unknown,
+    };
+
+/// Status of the best active purchase (lifetime first); null when none.
+PremiumStatus? statusFromPurchases(Iterable<PurchaseDetails> purchases, DateTime now) {
+  final statuses = [
+    for (final p in purchases)
+      if (grantsPremium(p))
+        PremiumStatus.play(
+          plan: planOf(p.productID),
+          purchasedAt: switch (int.tryParse(p.transactionDate ?? '')) {
+            final ms? => DateTime.fromMillisecondsSinceEpoch(ms),
+            null => null,
+          },
+          autoRenewing: p is GooglePlayPurchaseDetails ? p.billingClientPurchase.isAutoRenewing : true,
+          now: now,
+        ),
+  ];
+  if (statuses.isEmpty) return null;
+  return statuses.firstWhere((s) => s.plan == PremiumPlan.lifetime, orElse: () => statuses.first);
+}
+
+class PremiumNotifier extends Notifier<PremiumStatus?> {
   StreamSubscription<List<PurchaseDetails>>? _purchases;
-  bool _boughtNow = false; // a purchase seen this session wins over a slower query
+  AppLifecycleListener? _lifecycle;
+  PremiumStatus? _boughtNow; // a purchase seen this session, if Play's query lags
 
   @override
-  bool build() {
-    ref.onDispose(() => _purchases?.cancel());
+  PremiumStatus? build() {
+    ref.onDispose(() {
+      _purchases?.cancel();
+      _lifecycle?.dispose();
+    });
     if (Platform.isAndroid) unawaited(_start());
-    return false;
+    return null;
   }
 
   Future<void> _start() async {
     try {
-      if (await _storage.read(key: _cacheKey) == '1' && ref.mounted) state = true;
+      final cached = PremiumStatus.fromCache(await _storage.read(key: _cacheKey), now: DateTime.now());
+      if (cached != null && ref.mounted) state = cached;
+    } on Object {
+      // Unreadable cache (e.g. Keystore key lost): Google Play answers below.
+    }
+    try {
       _purchases = InAppPurchase.instance.purchaseStream.listen(_onPurchases, onError: (Object _) {});
+      // Renewals and cancellations made in Google Play while Monchi was in the background.
+      _lifecycle = AppLifecycleListener(onResume: () => unawaited(refresh()));
       await refresh();
     } on Object {
       // No Play Store (sideloaded APK, emulator without Play): keep the cache.
@@ -67,38 +113,42 @@ class PremiumNotifier extends Notifier<bool> {
   }
 
   /// Asks Google Play which purchases are active. Also "Restore purchases".
-  // ponytail: checked on launch only; a renewal or cancellation mid-session is
-  // picked up next launch. Re-check on app resume if that matters.
+  /// Runs on launch and whenever the app comes back to the foreground.
   Future<void> refresh() async {
     try {
       if (!Platform.isAndroid || !await InAppPurchase.instance.isAvailable()) return;
       final android = InAppPurchase.instance.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
       final response = await android.queryPastPurchases();
       if (response.error != null) return; // offline: keep the cached value
-      await _onPurchases(response.pastPurchases);
-      await _save(_boughtNow || response.pastPurchases.any(grantsPremium));
+      await _acknowledge(response.pastPurchases);
+      await _save(statusFromPurchases(response.pastPurchases, DateTime.now()) ?? _boughtNow);
     } on Object {
       // Play disconnected: keep the cached value.
     }
   }
 
+  /// Purchases made from the purchase sheet (the stream).
   Future<void> _onPurchases(List<PurchaseDetails> purchases) async {
+    final bought = statusFromPurchases(purchases, DateTime.now());
+    if (bought != null) {
+      _boughtNow = bought;
+      await _save(bought);
+    }
+    await _acknowledge(purchases);
+  }
+
+  /// Google refunds purchases that are not acknowledged within 3 days.
+  Future<void> _acknowledge(List<PurchaseDetails> purchases) async {
     for (final p in purchases) {
-      if (!premiumProductIds.contains(p.productID)) continue;
-      if (grantsPremium(p)) {
-        _boughtNow = true;
-        await _save(true);
-      }
-      // Google refunds purchases that are not acknowledged within 3 days.
-      if (p.pendingCompletePurchase && p.status != PurchaseStatus.pending) {
+      if (premiumProductIds.contains(p.productID) && p.pendingCompletePurchase && p.status != PurchaseStatus.pending) {
         await InAppPurchase.instance.completePurchase(p);
       }
     }
   }
 
-  Future<void> _save(bool active) async {
-    if (ref.mounted) state = active;
-    await _storage.write(key: _cacheKey, value: active ? '1' : '0');
+  Future<void> _save(PremiumStatus? status) async {
+    if (ref.mounted) state = status;
+    await _storage.write(key: _cacheKey, value: status?.toCache() ?? '0');
   }
 
   /// Opens Google Play's purchase sheet. The result arrives on the purchase

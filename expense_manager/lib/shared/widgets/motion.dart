@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/money/money.dart';
 
@@ -81,6 +82,101 @@ class CountUpMoney extends StatelessWidget {
       duration: const Duration(milliseconds: 900),
       curve: Curves.easeOutCubic,
       builder: (context, v, _) => Text(Money(v.round(), value.currency).format(), style: style),
+    );
+  }
+}
+
+/// Celebrates a saved item: a check pops in with a ring burst over the whole
+/// app, then fades out and removes itself. Pass the root overlay captured
+/// before navigating away (`Overlay.of(context, rootOverlay: true)`).
+void showSuccessBurst(OverlayState overlay, {required String message, required IconData icon, required Color color}) {
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => _SuccessBurst(message: message, icon: icon, color: color, onDone: () => entry.remove()),
+  );
+  overlay.insert(entry);
+  HapticFeedback.mediumImpact();
+}
+
+class _SuccessBurst extends StatelessWidget {
+  const _SuccessBurst({required this.message, required this.icon, required this.color, required this.onDone});
+
+  final String message;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // One-shot tween (no repeat), so widget tests can pumpAndSettle.
+    return IgnorePointer(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 1300),
+        onEnd: onDone,
+        builder: (context, t, _) {
+          final pop = Curves.elasticOut.transform((t / 0.5).clamp(0.0, 1.0));
+          final ring = Curves.easeOutCubic.transform((t / 0.6).clamp(0.0, 1.0));
+          final fade = t < 0.75 ? 1.0 : 1 - (t - 0.75) / 0.25;
+          return Opacity(
+            opacity: fade.clamp(0.0, 1.0),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: 160,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Transform.scale(
+                          scale: 0.4 + ring,
+                          child: Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: color.withValues(alpha: 1 - ring), width: 6),
+                            ),
+                          ),
+                        ),
+                        Transform.scale(
+                          scale: pop,
+                          child: Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 24)],
+                            ),
+                            child: Icon(icon, size: 52, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: Offset(0, 12 * (1 - pop.clamp(0.0, 1.0))),
+                    child: Material(
+                      color: theme.colorScheme.inverseSurface,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Text(
+                          message,
+                          style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onInverseSurface),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

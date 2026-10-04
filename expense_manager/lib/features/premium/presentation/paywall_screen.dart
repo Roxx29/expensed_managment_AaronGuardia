@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../domain/premium/premium_status.dart';
+import '../../../shared/widgets/motion.dart';
 import '../../backup/application/cloud_backup.dart';
 import '../application/gift_providers.dart';
 import '../application/premium_providers.dart';
@@ -78,7 +82,10 @@ class PaywallScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final premium = ref.watch(premiumProvider);
+    final status = ref.watch(premiumStatusProvider);
+    final premium = status != null;
+    // A gift can end; buying keeps Premium afterwards. Play buyers manage it in Play.
+    final showPlans = status == null || status.plan == PremiumPlan.gift;
     final plans = ref.watch(premiumPlansProvider);
     final theme = Theme.of(context);
     final benefits = [
@@ -98,7 +105,13 @@ class PaywallScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
-              Image.asset('assets/brand/monchi_mark.png', height: 72),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.6, end: 1),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.elasticOut,
+                builder: (context, t, child) => Transform.scale(scale: t, child: child),
+                child: Image.asset('assets/brand/monchi_mark.png', height: 72),
+              ),
               const SizedBox(height: 8),
               Text(
                 premium ? context.tr('You have Monchi Premium. Thank you!') : context.tr('Do more with your money'),
@@ -106,19 +119,18 @@ class PaywallScreen extends ConsumerWidget {
                 style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 16),
-              for (final (icon, text) in benefits)
-                ListTile(
-                  leading: Icon(icon, color: theme.colorScheme.primary),
-                  title: Text(text),
-                  contentPadding: EdgeInsets.zero,
+              if (status != null) FadeSlideIn(child: PremiumStatusCard(status: status)),
+              for (final (i, (icon, text)) in benefits.indexed)
+                FadeSlideIn(
+                  index: i + 1,
+                  child: ListTile(
+                    leading: Icon(icon, color: theme.colorScheme.primary),
+                    title: Text(text),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
               const SizedBox(height: 8),
-              if (premium)
-                Text(
-                  context.tr('Manage or cancel your subscription in Google Play › Payments & subscriptions.'),
-                  style: theme.textTheme.bodySmall,
-                )
-              else
+              if (showPlans)
                 ...plans.when(
                   loading: () => const [Center(child: CircularProgressIndicator())],
                   error: (_, _) => [_Unavailable(onRetry: () => ref.invalidate(premiumPlansProvider))],
@@ -143,6 +155,129 @@ class PaywallScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One line for menus: "Free plan", "Active · renews Nov 4, 2026", ...
+String premiumSummary(BuildContext context, PremiumStatus? status) {
+  if (status == null) return context.tr('Free plan');
+  final until = status.until;
+  if (until == null) return context.tr('Active · never expires');
+  final date = DateFormat.yMMMd(context.lang).format(until);
+  return status.renews
+      ? context.tr('Active · renews {date}', {'date': date})
+      : context.tr('Active until {date}', {'date': date});
+}
+
+/// Plan, renewal or end date, days left and a link to manage it in Google Play.
+class PremiumStatusCard extends StatelessWidget {
+  const PremiumStatusCard({super.key, required this.status});
+
+  final PremiumStatus status;
+
+  static const _package = 'com.nubiksoft.monchi';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final dateFormat = DateFormat.yMMMd(context.lang);
+    final until = status.until;
+    final daysLeft = status.daysLeft(now);
+    final warn = status.endsSoon(now);
+    const warnColor = Brand.coral; // readable on the ink card
+    final subscription = status.plan == PremiumPlan.monthly || status.plan == PremiumPlan.yearly;
+    final planName = switch (status.plan) {
+      PremiumPlan.monthly => context.tr('Monthly'),
+      PremiumPlan.yearly => context.tr('Yearly'),
+      PremiumPlan.lifetime => context.tr('Lifetime'),
+      PremiumPlan.gift => context.tr('Gift from Monchi'),
+      PremiumPlan.unknown => context.tr('Monchi Premium'),
+    };
+    final main = until == null
+        ? context.tr('Never expires')
+        : status.renews
+            ? context.tr('Renews on {date}', {'date': dateFormat.format(until)})
+            : context.tr('Active until {date}', {'date': dateFormat.format(until)});
+
+    return Card(
+      color: Brand.ink,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.workspace_premium_rounded, color: Brand.yellow),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.tr('Your plan'),
+                    style: theme.textTheme.labelLarge?.copyWith(color: Colors.white70),
+                  ),
+                ),
+                Chip(
+                  label: Text(planName),
+                  backgroundColor: Brand.yellow,
+                  labelStyle: const TextStyle(color: Brand.ink, fontWeight: FontWeight.w700),
+                  side: BorderSide.none,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              main,
+              style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+            ),
+            if (daysLeft != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                switch (daysLeft) {
+                  <= 0 => context.tr('Ends today'),
+                  1 => context.tr('1 day left'),
+                  _ => context.tr('{days} days left', {'days': daysLeft}),
+                },
+                style: TextStyle(color: warn ? warnColor : Colors.white70, fontWeight: warn ? FontWeight.w700 : null),
+              ),
+            ],
+            if (status.purchasedAt case final since?) ...[
+              const SizedBox(height: 4),
+              Text(
+                context.tr('Premium since {date}', {'date': dateFormat.format(since)}),
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ],
+            if (subscription && !status.renews) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Your subscription is canceled. You keep Premium until that date.'),
+                style: const TextStyle(color: warnColor),
+              ),
+            ],
+            if (subscription) ...[
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: () => launchUrl(
+                  Uri.parse(
+                    'https://play.google.com/store/account/subscriptions?sku=${status.plan == PremiumPlan.monthly ? monthlyProductId : yearlyProductId}&package=$_package',
+                  ),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: Text(context.tr('Manage subscription')),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Dates are estimated from your purchase; Google Play shows the exact ones.'),
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
+              ),
+            ],
+          ],
         ),
       ),
     );

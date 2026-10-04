@@ -14,6 +14,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../app/routes.dart';
 import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../../shared/widgets/motion.dart';
 import '../../../shared/widgets/transaction_tile.dart';
 import '../../onboarding/welcome_screen.dart';
 import '../../premium/application/gift_providers.dart';
@@ -144,8 +145,8 @@ class _BalanceCard extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                data.availableBalance.format(),
+              child: CountUpMoney(
+                value: data.availableBalance,
                 style: theme.textTheme.displaySmall?.copyWith(
                   color: theme.colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.w600,
@@ -183,7 +184,7 @@ class _Metric extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onPrimaryContainer)),
-        Text(value.format(), style: theme.textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
+        CountUpMoney(value: value, style: theme.textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -373,11 +374,16 @@ class _RecentTransactionsCard extends ConsumerWidget {
             )
           : Column(
               children: [
-                for (final tx in recent)
-                  TransactionTile(
-                    transaction: tx,
-                    category: categories[tx.categoryId],
-                    onTap: () => context.push(Routes.editTransaction(tx.id)),
+                // Keyed by id: a newly added transaction slides in, the rest stay put.
+                for (final (i, tx) in recent.indexed)
+                  FadeSlideIn(
+                    key: ValueKey(tx.id),
+                    index: i,
+                    child: TransactionTile(
+                      transaction: tx,
+                      category: categories[tx.categoryId],
+                      onTap: () => context.push(Routes.editTransaction(tx.id)),
+                    ),
                   ),
               ],
             ),

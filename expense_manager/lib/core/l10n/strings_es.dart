@@ -2,6 +2,24 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  // Premium status and animations (build 20).
+  'Your plan': 'Tu plan',
+  'Gift from Monchi': 'Regalo de Monchi',
+  'Free plan': 'Plan gratis',
+  'Active · never expires': 'Activo · no vence',
+  'Active · renews {date}': 'Activo · se renueva el {date}',
+  'Active until {date}': 'Activo hasta el {date}',
+  'Never expires': 'No vence nunca',
+  'Renews on {date}': 'Se renueva el {date}',
+  'Ends today': 'Vence hoy',
+  '1 day left': 'Queda 1 día',
+  '{days} days left': 'Quedan {days} días',
+  'Premium since {date}': 'Premium desde el {date}',
+  'Your subscription is canceled. You keep Premium until that date.': 'Tu suscripción está cancelada. Conservas Premium hasta esa fecha.',
+  'Manage subscription': 'Administrar suscripción',
+  'Dates are estimated from your purchase; Google Play shows the exact ones.': 'Las fechas se calculan desde tu compra; Google Play muestra las exactas.',
+  'Expense saved: {amount}': 'Gasto guardado: {amount}',
+  'Income saved: {amount}': 'Ingreso guardado: {amount}',
   'Each backup is also saved in Documents › backupmonchi on your phone, so it survives reinstalling the app. Those files are not encrypted: use Export encrypted to send a copy elsewhere.': 'Cada copia también se guarda en Documentos › backupmonchi de tu teléfono, así no se pierde si reinstalas la app. Esos archivos no están cifrados: usa Exportar cifrada para enviar una copia a otro lugar.',
   'Your account': 'Tu cuenta',
   'Your money, clear and only yours. Sign in to keep Premium and your cloud backup with you.': 'Tu dinero, claro y solo tuyo. Inicia sesión para llevar contigo tu Premium y tu copia en la nube.',
@@ -533,7 +551,6 @@ const esStrings = <String, String>{
   'Full statistics: yearly highlights, categories and history': 'Estadísticas completas: destacados del año, categorías e historial',
   'Scan receipts and import bank statements': 'Escanea recibos e importa estados de cuenta',
   'Finance assistant': 'Asistente financiero',
-  'Manage or cancel your subscription in Google Play › Payments & subscriptions.': 'Administra o cancela tu suscripción en Google Play › Pagos y suscripciones.',
   'Subscriptions renew automatically until you cancel them in Google Play. Cancel at least 24 hours before the renewal date to avoid the next charge. Lifetime is a single payment.': 'Las suscripciones se renuevan automáticamente hasta que las canceles en Google Play. Cancela al menos 24 horas antes de la renovación para evitar el siguiente cobro. De por vida es un pago único.',
   'Restore purchases': 'Restaurar compras',
   'Lifetime': 'De por vida',

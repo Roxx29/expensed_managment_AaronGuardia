@@ -17,13 +17,14 @@ FirebaseFirestore get _db => FirebaseFirestore.instance;
 /// `grants/<email>` and `redemptions/<uid>`; `users/<uid>.blocked` cancels both.
 /// Also keeps the user's row in the panel up to date. Needs Google sign-in;
 /// Firestore's offline cache answers when there is no connection.
-final giftPremiumProvider = FutureProvider<bool>((ref) async {
+/// The gift in force (forever wins, else the latest end) or null.
+final giftPremiumProvider = FutureProvider<Gift?>((ref) async {
   final email = await ref.watch(cloudUserProvider.future);
-  if (email == null) return false; // also every build without Firebase (tests)
+  if (email == null) return null; // also every build without Firebase (tests)
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return false;
+  if (user == null) return null;
   // Re-runs when Google Play answers, so the panel's row is right.
-  final playPremium = ref.watch(playPremiumProvider);
+  final playPremium = ref.watch(playPremiumProvider.select((s) => s != null));
   try {
     final me = _db.doc('users/${user.uid}');
     final snapshot = await me.get();
@@ -38,7 +39,7 @@ final giftPremiumProvider = FutureProvider<bool>((ref) async {
     }, SetOptions(merge: true)).catchError((Object _) {}));
     final grant = await _db.doc('grants/${email.toLowerCase()}').get();
     final redemption = await _db.doc('redemptions/${user.uid}').get();
-    return giftPremiumActive(
+    return bestGift(
       [
         if (grant.exists) Gift(until: _date(grant.data()?['until'])),
         if (redemption.exists)
@@ -52,7 +53,7 @@ final giftPremiumProvider = FutureProvider<bool>((ref) async {
       now: DateTime.now(),
     );
   } on Object {
-    return false; // offline with nothing cached, or Firebase misconfigured
+    return null; // offline with nothing cached, or Firebase misconfigured
   }
 });
 

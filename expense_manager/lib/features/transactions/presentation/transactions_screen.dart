@@ -13,6 +13,7 @@ import '../../../domain/entities/entities.dart';
 import '../../../domain/finance/transaction_filter.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../../shared/widgets/motion.dart';
 import '../../../shared/widgets/transaction_tile.dart';
 import '../application/transaction_providers.dart';
 
@@ -168,11 +169,15 @@ class _TransactionListState extends ConsumerState<_TransactionList> {
             child: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.onErrorContainer),
           ),
           onDismissed: (_) => _deleteWithUndo(tx),
-          child: TransactionTile(
-            transaction: tx,
-            category: categories[tx.categoryId],
-            showTime: groupByDay,
-            onTap: () => context.push(Routes.editTransaction(tx.id)),
+          // Stagger only the first screenful; rows built while scrolling just fade.
+          child: FadeSlideIn(
+            index: i < 8 ? i : 0,
+            child: TransactionTile(
+              transaction: tx,
+              category: categories[tx.categoryId],
+              showTime: groupByDay,
+              onTap: () => context.push(Routes.editTransaction(tx.id)),
+            ),
           ),
         );
         if (!showHeader) return tile;
