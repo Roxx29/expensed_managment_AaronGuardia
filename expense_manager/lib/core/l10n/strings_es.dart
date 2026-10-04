@@ -2,6 +2,7 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  'Each backup is also saved in Documents › backupmonchi on your phone, so it survives reinstalling the app. Those files are not encrypted: use Export encrypted to send a copy elsewhere.': 'Cada copia también se guarda en Documentos › backupmonchi de tu teléfono, así no se pierde si reinstalas la app. Esos archivos no están cifrados: usa Exportar cifrada para enviar una copia a otro lugar.',
   'Your account': 'Tu cuenta',
   'Your money, clear and only yours. Sign in to keep Premium and your cloud backup with you.': 'Tu dinero, claro y solo tuyo. Inicia sesión para llevar contigo tu Premium y tu copia en la nube.',
   'Wrong e-mail or password.': 'Correo o contraseña incorrectos.',

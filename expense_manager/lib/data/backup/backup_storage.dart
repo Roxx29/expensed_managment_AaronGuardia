@@ -42,7 +42,23 @@ class LocalBackupStorage implements BackupStorage {
   Future<int> write(String fileName, String content) async {
     final bytes = utf8.encode(content);
     await (await _file(fileName)).writeAsBytes(bytes, flush: true);
+    if (Platform.isAndroid) await _copyToDocuments(fileName, bytes);
     return bytes.length;
+  }
+
+  /// A copy the user can see in the phone's file manager. It stays there:
+  /// pruning and deleting in the app only touch the private folder.
+  // ponytail: primary storage path hard-coded and no permission request, so
+  // Android 10 and older (they need WRITE_EXTERNAL_STORAGE) keep only the
+  // private copy. Use MediaStore if that matters.
+  static Future<void> _copyToDocuments(String fileName, List<int> bytes) async {
+    try {
+      final dir = Directory(publicBackupFolder);
+      await dir.create(recursive: true);
+      await File('${dir.path}/$fileName').writeAsBytes(bytes, flush: true);
+    } on FileSystemException {
+      // Best effort: the private backup above already succeeded.
+    }
   }
 
   @override
@@ -70,6 +86,9 @@ class LocalBackupStorage implements BackupStorage {
     return names..sort(compareBackupNames);
   }
 }
+
+/// Documents › backupmonchi on the phone (Android).
+const publicBackupFolder = '/storage/emulated/0/Documents/backupmonchi';
 
 /// `backup_20261004_153000_manual_ab12cd34.json` → 2026-10-04 15:30:00.
 DateTime? backupNameDate(String fileName) {

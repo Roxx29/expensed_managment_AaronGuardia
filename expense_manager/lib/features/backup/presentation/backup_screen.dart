@@ -396,7 +396,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               EmptyState(
                 icon: Icons.lock_outline_rounded,
                 message: context.tr(
-                  'Backups on this device are not encrypted. Use Export encrypted to save a copy outside the app, and export a backup before changing or resetting your phone.',
+                  'Each backup is also saved in Documents › backupmonchi on your phone, so it survives reinstalling the app. Those files are not encrypted: use Export encrypted to send a copy elsewhere.',
                 ),
               ),
             ],
