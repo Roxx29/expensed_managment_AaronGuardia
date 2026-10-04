@@ -1,5 +1,7 @@
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart' show GoogleSignInException;
 import 'package:intl/intl.dart';
 
 import '../../../core/l10n/l10n.dart';
@@ -12,6 +14,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../premium/presentation/paywall_screen.dart';
 import '../application/backup_providers.dart';
+import '../application/cloud_backup.dart';
 
 String _errorMessage(BuildContext context, Object error) => switch (error) {
       BackupException(error: BackupError.tooLarge) => context.tr('The file is too large to be a backup.'),
@@ -23,6 +26,9 @@ String _errorMessage(BuildContext context, Object error) => switch (error) {
         context.tr('The backup contains invalid data. Nothing was changed.'),
       BackupException(error: BackupError.wrongPassphrase) =>
         context.tr('Wrong passphrase, or the file is damaged. Nothing was changed.'),
+      FirebaseException(code: 'object-not-found') => context.tr('There is no backup in the cloud yet.'),
+      FirebaseException() || GoogleSignInException() =>
+        context.tr('Could not connect to the cloud. Check your internet connection and try again.'),
       _ => context.tr('Something went wrong. Nothing was changed.'),
     };
 
@@ -93,6 +99,128 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (!mounted) return null;
     return showDialog<String>(context: context, builder: (_) => _PassphraseDialog(confirm: confirm));
   }
+
+  /// Premium: one encrypted backup in the user's Google account.
+  Widget _cloudCard(BuildContext context) {
+    final cloud = ref.read(cloudBackupProvider);
+    final email = ref.watch(cloudUserProvider).value;
+    final uploadedText = context.tr('Backup saved in the cloud');
+    final restoredText = context.tr('Backup restored');
+    final deletedText = context.tr('Account and cloud backup deleted');
+    return SectionCard(
+      title: context.tr('Cloud backup'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.tr(
+              'Your data is encrypted on this phone with your passphrase before it is uploaded. Nobody else can read it, not even Monchi. If you forget the passphrase, the cloud backup cannot be opened.',
+            ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          if (email == null)
+            FilledButton.tonalIcon(
+              onPressed: _busy
+                  ? null
+                  : () {
+                      if (!requirePremium(context, ref)) return;
+                      _run(() async {
+                        await cloud.signIn();
+                        return null;
+                      });
+                    },
+              icon: const Icon(Icons.login_rounded),
+              label: Text(context.tr('Sign in with Google')),
+            )
+          else ...[
+            Text(context.tr('Signed in as {email}', {'email': email})),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          if (!requirePremium(context, ref)) return;
+                          _run(() async {
+                            final passphrase = await _askPassphrase(confirm: true);
+                            if (passphrase == null) return null;
+                            await cloud.upload(passphrase);
+                            return uploadedText;
+                          });
+                        },
+                  icon: const Icon(Icons.cloud_upload_rounded),
+                  label: Text(context.tr('Upload to the cloud')),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          if (!requirePremium(context, ref)) return;
+                          final when = context.tr('your cloud backup');
+                          _run(() async {
+                            if (!await _confirmRestore(when)) return null;
+                            final restored = await cloud.restore(askPassphrase: () => _askPassphrase(confirm: false));
+                            return restored ? restoredText : null;
+                          });
+                        },
+                  icon: const Icon(Icons.cloud_download_rounded),
+                  label: Text(context.tr('Restore from the cloud')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 4,
+              children: [
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _run(() async {
+                            await cloud.signOut();
+                            return null;
+                          }),
+                  child: Text(context.tr('Sign out')),
+                ),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _run(() async {
+                            if (!await _confirmDeleteAccount()) return null;
+                            await cloud.deleteAccount();
+                            return deletedText;
+                          }),
+                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                  child: Text(context.tr('Delete account and cloud data')),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _confirmDeleteAccount() async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(context.tr('Delete your cloud account?')),
+          content: Text(
+            context.tr(
+              'Your cloud backup and your Monchi cloud account are deleted permanently. The data on this phone is kept.',
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Delete'))),
+          ],
+        ),
+      ) ??
+      false;
 
   @override
   Widget build(BuildContext context) {
@@ -179,6 +307,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              if (cloudAvailable) ...[_cloudCard(context), const SizedBox(height: 16)],
               SectionCard(
                 title: context.tr('Backups on this device'),
                 child: backups.isEmpty

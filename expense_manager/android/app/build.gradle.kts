@@ -27,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.aguardia.expensemanager"
+        applicationId = "com.nubiksoft.monchi"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

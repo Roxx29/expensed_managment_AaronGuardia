@@ -41,6 +41,11 @@ dependencies:
   # Monchi Premium: Google Play subscriptions + lifetime purchase
   in_app_purchase: ^3.3.1
   in_app_purchase_android: ^0.5.3
+  # Monchi Premium: encrypted cloud backup (Google sign-in + Firebase Storage)
+  firebase_core: ^4.1.0
+  firebase_auth: ^6.1.0
+  firebase_storage: ^13.0.0
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

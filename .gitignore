@@ -6,3 +6,6 @@ APK/
 **/*.jks
 **/*.keystore
 **/SECRETOS_GITHUB_NO_SUBIR.txt
+# Firebase settings (CI writes them from a secret).
+**/firebase_defines.json
+**/google-services.json

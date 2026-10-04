@@ -25,7 +25,22 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(dashboardProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr('Overview'))),
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/brand/monchi_mark.png', height: 32),
+            const SizedBox(width: 10),
+            Text(
+              'Monchi',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      ),
       body: snapshot.when(
         // Keep showing the previous snapshot while data changes recompute it.
         skipLoadingOnReload: true,

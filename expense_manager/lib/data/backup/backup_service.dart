@@ -67,6 +67,9 @@ class BackupService {
     return true;
   }
 
+  /// Plain JSON of the current data, without saving a local backup.
+  Future<String> encode() => _codec.encode(now: _clock());
+
   Future<void> restore(BackupRecord record) async => restoreFromContent(await read(record));
 
   /// Plain JSON of a stored backup (e.g. to encrypt it for export).
