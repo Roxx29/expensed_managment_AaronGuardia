@@ -5,13 +5,11 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { getStorage, ref, deleteObject } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js';
 import { firebaseConfig } from './config.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const DAY = 86400000;
 
 // ---------- tiny DOM helper: strings always become text (no HTML injection) ----------
@@ -171,7 +169,9 @@ function usuarios() {
 async function deleteUser(u) {
   if (!confirm(`¿Borrar la copia en la nube y los datos de ${u.email}? No se puede deshacer.`)) return;
   const done = await act(async () => {
-    await deleteObject(ref(storage, `users/${u.uid}/backup.enc.json`)).catch((e) => { if (e.code !== 'storage/object-not-found') throw e; });
+    // Cloud backup: metadata + chunks (lib/features/backup/application/cloud_backup.dart).
+    for (const c of (await getDocs(collection(db, 'backups', u.uid, 'chunks'))).docs) await deleteDoc(c.ref);
+    await deleteDoc(doc(db, 'backups', u.uid));
     if (S.redemptions[u.uid]) await deleteDoc(doc(db, 'redemptions', u.uid));
     if (S.grants[lower(u.email)]) await deleteDoc(doc(db, 'grants', lower(u.email)));
     await deleteDoc(doc(db, 'users', u.uid));

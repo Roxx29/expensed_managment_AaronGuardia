@@ -48,6 +48,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Encrypted cloud backup (cloud_backup.dart): metadata + text chunks.
+    // Only the owner reads it; it is encrypted on the phone anyway.
+    match /backups/{uid} {
+      allow read: if isMe(uid) || isAdmin();
+      allow delete: if isMe(uid) || isAdmin();
+      allow create, update: if isMe(uid) && !isBlocked(uid)
+        && request.resource.data.keys().hasOnly(['version', 'chunks', 'size', 'updatedAt'])
+        && request.resource.data.chunks is int && request.resource.data.chunks <= 120
+        && request.resource.data.updatedAt == request.time;
+      match /chunks/{chunk} {
+        allow read: if isMe(uid);
+        allow list: if isAdmin(); // to delete them
+        allow delete: if isMe(uid) || isAdmin();
+        allow create, update: if isMe(uid) && !isBlocked(uid)
+          && request.resource.data.keys().hasOnly(['data'])
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 900000;
+      }
+    }
+
     // Promo codes. Users can open one code by name but never list them.
     match /codes/{code} {
       allow get: if signedIn();

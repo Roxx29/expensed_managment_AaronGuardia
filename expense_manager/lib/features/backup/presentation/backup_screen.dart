@@ -26,7 +26,7 @@ String _errorMessage(BuildContext context, Object error) => switch (error) {
         context.tr('The backup contains invalid data. Nothing was changed.'),
       BackupException(error: BackupError.wrongPassphrase) =>
         context.tr('Wrong passphrase, or the file is damaged. Nothing was changed.'),
-      FirebaseException(code: 'object-not-found') => context.tr('There is no backup in the cloud yet.'),
+      FirebaseException(code: 'not-found') => context.tr('There is no backup in the cloud yet.'),
       FirebaseException() || GoogleSignInException() =>
         context.tr('Could not connect to the cloud. Check your internet connection and try again.'),
       _ => context.tr('Something went wrong. Nothing was changed.'),

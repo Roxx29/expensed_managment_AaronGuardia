@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -13,7 +11,7 @@ import '../../../data/backup/backup_crypto.dart';
 import 'backup_providers.dart';
 
 // Firebase project settings. They ship inside every APK and are not secret
-// (firebase/firestore.rules and storage.rules protect the data); a CI
+// (firebase/firestore.rules protects the data); a CI
 // `--dart-define=FB_...` can still override them.
 const _apiKey = String.fromEnvironment('FB_API_KEY', defaultValue: 'AIzaSyBkezYd2AHIb3hAr34EAz_CqQk-9_rJUGU');
 const _appId = String.fromEnvironment('FB_APP_ID', defaultValue: '1:699143520703:android:f364c0261158b82559a10a');
@@ -22,7 +20,10 @@ const _projectId = String.fromEnvironment('FB_PROJECT_ID', defaultValue: 'monchi
 const _bucket = String.fromEnvironment('FB_BUCKET', defaultValue: 'monchi-fb5e9.firebasestorage.app');
 // OAuth "Web client" of the project (Firebase › Authentication › Google ›
 // Web SDK configuration). Google sign-in needs it on Android.
-const _webClientId = String.fromEnvironment('FB_WEB_CLIENT_ID', defaultValue: '');
+const _webClientId = String.fromEnvironment(
+  'FB_WEB_CLIENT_ID',
+  defaultValue: '699143520703-rtr1opuhkvgpdg103g4ecqq3pfi6b55m.apps.googleusercontent.com',
+);
 
 /// Android with Google sign-in configured (never in tests).
 bool get cloudAvailable => _apiKey.isNotEmpty && _webClientId.isNotEmpty && Platform.isAndroid;
@@ -60,8 +61,10 @@ final cloudUserProvider = StreamProvider<String?>((ref) async* {
 
 final cloudBackupProvider = Provider<CloudBackup>(CloudBackup.new);
 
-/// One backup per account at `users/<uid>/backup.enc.json`, always encrypted
-/// on the phone with the user's passphrase (backup_crypto.dart) before upload.
+/// One backup per account in Firestore (no Cloud Storage, so no paid plan):
+/// `backups/<uid>` {version, chunks, size, updatedAt} plus the text in
+/// `backups/<uid>/chunks/<version>_<i>` (a document holds at most 1 MiB).
+/// Always encrypted on the phone with the user's passphrase (backup_crypto.dart).
 // ponytail: manual upload only (the passphrase is asked each time); automatic
 // cloud uploads need the passphrase kept in secure storage.
 class CloudBackup {
@@ -69,9 +72,18 @@ class CloudBackup {
 
   final Ref _ref;
 
+  /// Characters per chunk document (base64, so bytes = characters).
+  static const chunkSize = 900000;
+
+  /// Same limit as firestore.rules (about 108 MB).
+  static const maxChunks = 120;
+
   User get _user => FirebaseAuth.instance.currentUser ?? (throw StateError('Not signed in'));
 
-  Reference _file(User user) => FirebaseStorage.instance.ref('users/${user.uid}/backup.enc.json');
+  DocumentReference<Map<String, dynamic>> _meta(String uid) => FirebaseFirestore.instance.doc('backups/$uid');
+
+  DocumentReference<Map<String, dynamic>> _chunk(String uid, String version, int i) =>
+      FirebaseFirestore.instance.doc('backups/$uid/chunks/${version}_$i');
 
   /// Returns false when the user closes the Google account picker.
   Future<bool> signIn() async {
@@ -93,30 +105,65 @@ class CloudBackup {
     await GoogleSignIn.instance.signOut();
   }
 
-  /// Replaces the cloud backup with the current data.
+  /// Replaces the cloud backup with the current data. The new chunks are
+  /// written first and the old ones deleted last, so a failed upload never
+  /// leaves the account without a complete backup.
   Future<void> upload(String passphrase) async {
+    final uid = _user.uid;
     final encrypted = await encryptBackup(await _ref.read(backupServiceProvider).encode(), passphrase);
-    await _file(_user).putString(encrypted, metadata: SettableMetadata(contentType: 'application/json'));
+    final version = DateTime.now().millisecondsSinceEpoch.toString();
+    final chunks = [
+      for (var i = 0; i < encrypted.length; i += chunkSize)
+        encrypted.substring(i, i + chunkSize < encrypted.length ? i + chunkSize : encrypted.length),
+    ];
+    if (chunks.length > maxChunks) throw const BackupException(BackupError.tooLarge);
+    for (var i = 0; i < chunks.length; i++) {
+      await _chunk(uid, version, i).set({'data': chunks[i]});
+    }
+    await _meta(uid).set({
+      'version': version,
+      'chunks': chunks.length,
+      'size': encrypted.length,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await _deleteChunks(uid, keepVersion: version);
+  }
+
+  /// Deletes every chunk except [keepVersion]'s, also ones a failed upload left.
+  Future<void> _deleteChunks(String uid, {String? keepVersion}) async {
+    final all = await FirebaseFirestore.instance.collection('backups/$uid/chunks').get();
+    for (final d in all.docs) {
+      if (keepVersion == null || !d.id.startsWith('${keepVersion}_')) await d.reference.delete();
+    }
   }
 
   /// When this account's cloud backup was last uploaded; null when none.
   Future<DateTime?> backupDate() async {
-    try {
-      return (await _file(_user).getMetadata()).updated;
-    } on FirebaseException catch (e) {
-      if (e.code == 'object-not-found') return null;
-      rethrow;
-    }
+    final meta = (await _meta(_user.uid).get()).data();
+    if (meta == null) return null;
+    final at = meta['updatedAt'];
+    return at is Timestamp ? at.toDate() : DateTime.now();
   }
 
   /// Returns false when the passphrase prompt is cancelled.
   Future<bool> restore({required Future<String?> Function() askPassphrase}) async {
-    final bytes = await _file(_user).getData(BackupCodec.maxBytes * 2);
-    final content = utf8.decode(bytes ?? const <int>[]);
-    if (!isEncryptedBackup(content)) throw const BackupException(BackupError.notABackup);
+    final uid = _user.uid;
+    final meta = (await _meta(uid).get()).data();
+    if (meta == null) throw FirebaseException(plugin: 'monchi', code: 'not-found');
+    final content = StringBuffer();
+    for (var i = 0; i < (meta['chunks'] as num).toInt(); i++) {
+      final part = (await _chunk(uid, '${meta['version']}', i).get()).data()?['data'];
+      // Missing while another phone replaces the backup: try again later.
+      if (part is! String) throw const BackupException(BackupError.corrupted);
+      content.write(part);
+    }
+    final text = content.toString();
+    if (text.length > BackupCodec.maxBytes * 2 || !isEncryptedBackup(text)) {
+      throw const BackupException(BackupError.notABackup);
+    }
     final passphrase = await askPassphrase();
     if (passphrase == null) return false;
-    await _ref.read(backupServiceProvider).restoreFromContent(await decryptBackup(content, passphrase));
+    await _ref.read(backupServiceProvider).restoreFromContent(await decryptBackup(text, passphrase));
     return true;
   }
 
@@ -124,11 +171,8 @@ class CloudBackup {
   /// account deletion). Local data on the phone is kept.
   Future<void> deleteAccount() async {
     final user = _user;
-    try {
-      await _file(user).delete();
-    } on FirebaseException catch (e) {
-      if (e.code != 'object-not-found') rethrow;
-    }
+    await _deleteChunks(user.uid);
+    await _meta(user.uid).delete();
     try {
       // The admin panel row (refused for blocked accounts: the admin keeps it).
       await FirebaseFirestore.instance.doc('users/${user.uid}').delete();
