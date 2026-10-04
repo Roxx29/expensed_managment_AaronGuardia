@@ -56,4 +56,32 @@ class LocalBackupStorage implements BackupStorage {
 
   @override
   Future<String> pathOf(String fileName) async => (await _file(fileName)).path;
+
+  /// Backup files in the folder, newest first. After a reinstall Android can
+  /// bring them back from the Google account backup
+  /// (android/app/src/main/res/xml/*backup*_rules.xml) without their rows.
+  Future<List<String>> list() async {
+    final dir = Directory('${(await _baseDirectory()).path}${Platform.pathSeparator}backups');
+    if (!await dir.exists()) return const [];
+    final names = [
+      for (final f in dir.listSync().whereType<File>())
+        if (_safeName.hasMatch(f.uri.pathSegments.last)) f.uri.pathSegments.last,
+    ];
+    return names..sort(compareBackupNames);
+  }
+}
+
+/// `backup_20261004_153000_manual_ab12cd34.json` → 2026-10-04 15:30:00.
+DateTime? backupNameDate(String fileName) {
+  final m = RegExp(r'^backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_').firstMatch(fileName);
+  if (m == null) return null;
+  final n = [for (var i = 1; i <= 6; i++) int.parse(m.group(i)!)];
+  return DateTime(n[0], n[1], n[2], n[3], n[4], n[5]);
+}
+
+/// Newest first; names without a date go last.
+int compareBackupNames(String a, String b) {
+  final da = backupNameDate(a), db = backupNameDate(b);
+  if (da == null || db == null) return (da == null ? 1 : 0) - (db == null ? 1 : 0);
+  return db.compareTo(da);
 }

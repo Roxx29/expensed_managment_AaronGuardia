@@ -2,6 +2,14 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  'Welcome to Monchi': 'Bienvenido a Monchi',
+  'Your money, clear and only yours. Sign in with Google to keep Premium and your cloud backup with you.': 'Tu dinero, claro y solo tuyo. Inicia sesión con Google para llevar contigo tu Premium y tu copia en la nube.',
+  'We found your cloud backup from {when}.': 'Encontramos tu copia en la nube del {when}.',
+  'We found a backup saved on this phone from {when}.': 'Encontramos una copia guardada en este teléfono del {when}.',
+  'Restore it': 'Restaurarla',
+  'Restore from a backup file': 'Restaurar desde un archivo de copia',
+  'Continue without an account': 'Continuar sin cuenta',
+  'Continue': 'Continuar',
   'You already redeemed a code.': 'Ya canjeaste un código.',
   'Redeem a code': 'Canjear un código',
   'Code': 'Código',

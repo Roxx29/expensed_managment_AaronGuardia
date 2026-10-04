@@ -13,6 +13,8 @@ Monchi es una app para llevar tus gastos. Está hecha para que tus datos sean so
 - Tu copia se cifra en tu teléfono con una contraseña que solo tú conoces (AES-256-GCM) antes de subirla a Firebase Storage (Google). Nadie más puede leerla, ni siquiera el desarrollador.
 - Los datos viajan cifrados (HTTPS) y se guardan en los servidores de Google Cloud.
 
+**Copia de seguridad de Android.** Si tienes activada la copia de seguridad de tu cuenta de Google en Android, el sistema guarda ahí las copias de seguridad locales de Monchi (no la base de datos, ni tu PIN, ni tus ajustes), para recuperarlas si reinstalas la app o cambias de teléfono. Android las cifra con el bloqueo de pantalla de tu teléfono. Puedes desactivarlo en Ajustes de Android › Google › Copia de seguridad.
+
 **Avisos.** Al abrir la app, Monchi consulta en Firebase si hay un anuncio (novedades, avisos). Esa consulta no envía tus datos.
 
 **Compras.** Las suscripciones y la compra de por vida se procesan en Google Play. Monchi no ve ni guarda tus datos de pago.
@@ -35,6 +37,8 @@ Monchi is an expense tracker built so your data stays yours.
 - Your e-mail, Google name and an account id are stored in Firebase (Google) to know which backup and which Premium are yours. We also store when you last opened the app, its version and whether you pay for Premium, for support and Premium gifts.
 - Your backup is encrypted on your phone with a passphrase only you know (AES-256-GCM) before it is uploaded to Firebase Storage (Google). Nobody else can read it, not even the developer.
 - Data is sent over HTTPS and stored on Google Cloud servers.
+
+**Android backup.** If your Google account backup is on in Android, the system keeps Monchi's local backup files there (not the database, your PIN or settings) so you get them back after reinstalling or on a new phone. Android encrypts them with your phone's screen lock. You can turn it off in Android Settings › Google › Backup.
 
 **Announcements.** When the app opens it checks Firebase for an announcement (news, notices). That request sends none of your data.
 

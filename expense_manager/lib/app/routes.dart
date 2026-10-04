@@ -20,6 +20,7 @@ abstract final class Routes {
 
   // Full-screen routes (outside the tab shell).
   static const premium = '/premium';
+  static const welcome = '/welcome';
   static const newTransaction = '/transaction/new';
   static String editTransaction(String id) => '/transaction/$id';
   static const newRecurring = '/recurring/new';

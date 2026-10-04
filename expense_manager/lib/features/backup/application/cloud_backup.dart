@@ -12,16 +12,19 @@ import '../../../data/backup/backup_codec.dart';
 import '../../../data/backup/backup_crypto.dart';
 import 'backup_providers.dart';
 
-// Firebase settings come from `--dart-define-from-file` in CI (secret
-// FIREBASE_DEFINES), so the public repository holds no project keys.
-const _apiKey = String.fromEnvironment('FB_API_KEY');
-const _appId = String.fromEnvironment('FB_APP_ID');
-const _senderId = String.fromEnvironment('FB_SENDER_ID');
-const _projectId = String.fromEnvironment('FB_PROJECT_ID');
-const _bucket = String.fromEnvironment('FB_BUCKET');
-const _webClientId = String.fromEnvironment('FB_WEB_CLIENT_ID');
+// Firebase project settings. They ship inside every APK and are not secret
+// (firebase/firestore.rules and storage.rules protect the data); a CI
+// `--dart-define=FB_...` can still override them.
+const _apiKey = String.fromEnvironment('FB_API_KEY', defaultValue: 'AIzaSyBkezYd2AHIb3hAr34EAz_CqQk-9_rJUGU');
+const _appId = String.fromEnvironment('FB_APP_ID', defaultValue: '1:699143520703:android:f364c0261158b82559a10a');
+const _senderId = String.fromEnvironment('FB_SENDER_ID', defaultValue: '699143520703');
+const _projectId = String.fromEnvironment('FB_PROJECT_ID', defaultValue: 'monchi-fb5e9');
+const _bucket = String.fromEnvironment('FB_BUCKET', defaultValue: 'monchi-fb5e9.firebasestorage.app');
+// OAuth "Web client" of the project (Firebase › Authentication › Google ›
+// Web SDK configuration). Google sign-in needs it on Android.
+const _webClientId = String.fromEnvironment('FB_WEB_CLIENT_ID', defaultValue: '');
 
-/// Android builds made with the Firebase settings (not tests, not local builds).
+/// Android with Google sign-in configured (never in tests).
 bool get cloudAvailable => _apiKey.isNotEmpty && _webClientId.isNotEmpty && Platform.isAndroid;
 
 Future<void>? _ready;
@@ -94,6 +97,16 @@ class CloudBackup {
   Future<void> upload(String passphrase) async {
     final encrypted = await encryptBackup(await _ref.read(backupServiceProvider).encode(), passphrase);
     await _file(_user).putString(encrypted, metadata: SettableMetadata(contentType: 'application/json'));
+  }
+
+  /// When this account's cloud backup was last uploaded; null when none.
+  Future<DateTime?> backupDate() async {
+    try {
+      return (await _file(_user).getMetadata()).updated;
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') return null;
+      rethrow;
+    }
   }
 
   /// Returns false when the passphrase prompt is cancelled.

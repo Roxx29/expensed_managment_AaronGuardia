@@ -35,6 +35,17 @@ Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
   await db.close();
 }
 
+/// More › Settings. Settings sits at the bottom of the More list, partly
+/// under the bottom bar, so scroll it into view and tap its left edge.
+Future<void> _openSettings(WidgetTester tester) async {
+  await tester.tap(find.text('More'));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Settings'));
+  await tester.pumpAndSettle();
+  await tester.tapAt(tester.getTopLeft(find.text('Settings')) + const Offset(4, 4));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('phone: dashboard shows empty states and bottom navigation', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
@@ -59,10 +70,7 @@ void main() {
   testWidgets('settings: switching to dark theme persists', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
 
-    await tester.tap(find.text('More'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await _openSettings(tester);
     await tester.tap(find.text('Dark'));
     await tester.pumpAndSettle();
 
@@ -75,10 +83,7 @@ void main() {
   testWidgets('settings: choosing Español translates the app', (tester) async {
     final db = await _pumpApp(tester, const Size(390, 844));
 
-    await tester.tap(find.text('More'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await _openSettings(tester);
     await tester.tap(find.text('Español'));
     await tester.pumpAndSettle();
 

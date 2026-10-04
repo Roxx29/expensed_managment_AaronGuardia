@@ -127,6 +127,20 @@ class BackupActions {
         sharePositionOrigin: origin,
       ));
 
+  /// The newest backup file in the app folder, including files Android
+  /// restored after a reinstall (their list rows are gone). Android only.
+  Future<String?> newestStoredFile() async {
+    final storage = _ref.read(backupStorageProvider);
+    if (!Platform.isAndroid || storage is! LocalBackupStorage) return null;
+    return (await storage.list()).firstOrNull;
+  }
+
+  Future<void> restoreStoredFile(String fileName) async =>
+      _service.restoreFromContent(await _ref.read(backupStorageProvider).read(fileName));
+
+  /// True on a fresh install (no transactions yet).
+  Future<bool> hasNoData() async => (await _ref.read(transactionRepositoryProvider).watchAll().first).isEmpty;
+
   /// Lets the user pick a backup file (plain or encrypted). Returns false if
   /// cancelled. Throws BackupException when the file is invalid or the
   /// passphrase is wrong.

@@ -97,7 +97,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   /// Returns null when cancelled.
   Future<String?> _askPassphrase({required bool confirm}) async {
     if (!mounted) return null;
-    return showDialog<String>(context: context, builder: (_) => _PassphraseDialog(confirm: confirm));
+    return showDialog<String>(context: context, builder: (_) => PassphraseDialog(confirm: confirm));
   }
 
   /// Premium: one encrypted backup in the user's Google account.
@@ -156,7 +156,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   onPressed: _busy
                       ? null
                       : () {
-                          if (!requirePremium(context, ref)) return;
+                          // Restoring is free: nobody loses their own data.
                           final when = context.tr('your cloud backup');
                           _run(() async {
                             if (!await _confirmRestore(when)) return null;
@@ -406,17 +406,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 }
 
-class _PassphraseDialog extends StatefulWidget {
-  const _PassphraseDialog({required this.confirm});
+class PassphraseDialog extends StatefulWidget {
+  const PassphraseDialog({super.key, required this.confirm});
 
   /// True for a new passphrase (encrypting): asks twice and enforces the length.
   final bool confirm;
 
   @override
-  State<_PassphraseDialog> createState() => _PassphraseDialogState();
+  State<PassphraseDialog> createState() => _PassphraseDialogState();
 }
 
-class _PassphraseDialogState extends State<_PassphraseDialog> {
+class _PassphraseDialogState extends State<PassphraseDialog> {
   final _formKey = GlobalKey<FormState>();
   final _passphrase = TextEditingController();
   final _repeat = TextEditingController();

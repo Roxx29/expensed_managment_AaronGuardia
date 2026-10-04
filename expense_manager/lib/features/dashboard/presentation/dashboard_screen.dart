@@ -15,6 +15,7 @@ import '../../../app/routes.dart';
 import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/transaction_tile.dart';
+import '../../onboarding/welcome_screen.dart';
 import '../../premium/application/gift_providers.dart';
 import '../application/dashboard_providers.dart';
 import 'insight_text.dart';
@@ -25,6 +26,10 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(dashboardProvider);
+    // First launch: sign in and get previous data back (welcome_screen.dart).
+    ref.listen(showWelcomeProvider, (_, next) {
+      if (next.value == true) context.push(Routes.welcome);
+    });
     return Scaffold(
       appBar: AppBar(
         title: Row(

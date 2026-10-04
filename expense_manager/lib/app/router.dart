@@ -11,6 +11,7 @@ import '../features/categories/presentation/categories_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/import/presentation/import_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/onboarding/welcome_screen.dart';
 import '../features/premium/presentation/paywall_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recurring/presentation/recurring_form_screen.dart';
@@ -86,6 +87,7 @@ GoRouter _buildRouter() => GoRouter(
       ],
     ),
     GoRoute(path: Routes.premium, builder: (_, _) => const PaywallScreen()),
+    GoRoute(path: Routes.welcome, builder: (_, _) => const WelcomeScreen()),
     // `new` is matched before `:id` because routes are checked in order.
     GoRoute(
       path: Routes.newTransaction,
