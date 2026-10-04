@@ -6,6 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import 'gift_providers.dart';
+
 /// Google Play product ids. Create them with these exact ids in Play Console:
 /// two subscriptions (each with a 7-day free-trial offer) and one one-time
 /// product for lifetime access.
@@ -32,10 +34,16 @@ bool grantsPremium(PurchaseDetails p) =>
 const _cacheKey = 'premium.active';
 const _storage = FlutterSecureStorage(aOptions: AndroidOptions());
 
-/// Whether Monchi Premium is unlocked. Always false off Android (tests, iOS).
+/// Whether Monchi Premium is unlocked: bought on Google Play or given from the
+/// admin panel. Always false off Android (tests, iOS).
+final premiumProvider = Provider<bool>(
+  (ref) => ref.watch(playPremiumProvider) || (ref.watch(giftPremiumProvider).value ?? false),
+);
+
+/// Bought on Google Play.
 // ponytail: client-side check only, no receipt verification server; add Play
 // Developer API verification when the app gets a backend.
-final premiumProvider = NotifierProvider<PremiumNotifier, bool>(PremiumNotifier.new);
+final playPremiumProvider = NotifierProvider<PremiumNotifier, bool>(PremiumNotifier.new);
 
 class PremiumNotifier extends Notifier<bool> {
   StreamSubscription<List<PurchaseDetails>>? _purchases;

@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// Monchi — paste in Firebase console › Firestore Database › Rules › Publish.
+// Admins: create a document in collection `admins` whose ID is your Google
+// e-mail (e.g. admins/you@gmail.com, no fields needed). Only you can do that,
+// from the console.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function verifiedEmail() { return signedIn() && request.auth.token.email_verified == true; }
+    function isBlocked(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.get('blocked', false) == true;
+    }
+
+    match /admins/{email} {
+      allow read: if isAdmin();
+    }
+
+    // Announcement shown on Home: everyone reads, admins write.
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // One row per signed-in user, written by the app; `blocked` is admin-only.
+    match /users/{uid} {
+      allow read: if isMe(uid) || isAdmin();
+      // Deleting the row would clear `blocked`, so blocked users can't.
+      allow delete: if isAdmin() || (isMe(uid) && !resource.data.get('blocked', false));
+      allow create: if isMe(uid) && verifiedEmail()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'lastSeen', 'appBuild', 'playPremium', 'createdAt'])
+        && request.resource.data.email == request.auth.token.email;
+      allow update: if isAdmin() || (isMe(uid) && verifiedEmail()
+        && changed().hasOnly(['email', 'name', 'lastSeen', 'appBuild', 'playPremium'])
+        && request.resource.data.email == request.auth.token.email);
+    }
+
+    // Premium gifted by e-mail (document ID = lower-case e-mail).
+    match /grants/{email} {
+      allow read: if (verifiedEmail() && request.auth.token.email.lower() == email) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Promo codes. Users can open one code by name but never list them.
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn()
+        && changed().hasOnly(['uses'])
+        && request.resource.data.uses == resource.data.uses + 1
+        && request.resource.data.uses <= resource.data.maxUses
+        && resource.data.active == true
+        && (resource.data.expiresAt == null || request.time < resource.data.expiresAt)
+        && getAfter(/databases/$(database)/documents/redemptions/$(request.auth.uid)).data.code == code
+        && getAfter(/databases/$(database)/documents/redemptions/$(request.auth.uid)).data.redeemedAt == request.time);
+    }
+
+    // The code a user redeemed, one per user (an admin deletes it to allow
+    // another). Written together with the code's `uses + 1`.
+    match /redemptions/{uid} {
+      function validRedemption() {
+        let r = request.resource.data;
+        let before = get(/databases/$(database)/documents/codes/$(r.code)).data;
+        let after = getAfter(/databases/$(database)/documents/codes/$(r.code)).data;
+        return r.keys().hasOnly(['code', 'days', 'redeemedAt'])
+          && r.redeemedAt == request.time
+          && r.days == before.days
+          && after.uses == before.uses + 1;
+      }
+      allow read: if isMe(uid) || isAdmin();
+      allow create: if isMe(uid) && !isBlocked(uid) && validRedemption();
+      allow update, delete: if isAdmin(); // revoke / allow a new code
+    }
+  }
+}

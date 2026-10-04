@@ -15,6 +15,7 @@ import '../../../app/routes.dart';
 import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/transaction_tile.dart';
+import '../../premium/application/gift_providers.dart';
 import '../application/dashboard_providers.dart';
 import 'insight_text.dart';
 
@@ -60,14 +61,15 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _DashboardBody extends StatelessWidget {
+class _DashboardBody extends ConsumerWidget {
   const _DashboardBody({required this.data});
 
   final DashboardSnapshot data;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final primary = <Widget>[
+      if (ref.watch(announcementProvider).value != null) const _AnnouncementCard(),
       _BalanceCard(data: data),
       _BudgetCard(data: data),
       if (data.insights.isNotEmpty) _AlertsCard(insights: data.insights),
@@ -217,6 +219,27 @@ class _BudgetCard extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// Message written in the admin panel; nothing when there is none.
+class _AnnouncementCard extends ConsumerWidget {
+  const _AnnouncementCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final a = ref.watch(announcementProvider).value;
+    var text = '${a?[context.lang] ?? ''}'.trim();
+    if (text.isEmpty) text = '${a?['es'] ?? ''}'.trim();
+    if (text.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.secondaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.campaign_rounded, color: scheme.onSecondaryContainer),
+        title: Text(text, style: TextStyle(color: scheme.onSecondaryContainer)),
+      ),
     );
   }
 }

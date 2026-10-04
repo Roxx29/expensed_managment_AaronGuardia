@@ -123,13 +123,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             FilledButton.tonalIcon(
               onPressed: _busy
                   ? null
-                  : () {
-                      if (!requirePremium(context, ref)) return;
-                      _run(() async {
+                  : () => _run(() async {
                         await cloud.signIn();
                         return null;
-                      });
-                    },
+                      }),
               icon: const Icon(Icons.login_rounded),
               label: Text(context.tr('Sign in with Google')),
             )

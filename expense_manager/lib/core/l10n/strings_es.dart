@@ -2,6 +2,15 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  'You already redeemed a code.': 'Ya canjeaste un código.',
+  'Redeem a code': 'Canjear un código',
+  'Code': 'Código',
+  'Redeem': 'Canjear',
+  'Code redeemed. Enjoy Monchi Premium!': 'Código canjeado. ¡Disfruta Monchi Premium!',
+  'This code does not exist or has expired.': 'Este código no existe o ya venció.',
+  'This code was already used.': 'Este código ya se usó.',
+  'Have a code or a gift?': '¿Tienes un código o un regalo?',
+  'Sign in with Google to receive Premium gifted by Monchi or to redeem a code.': 'Inicia sesión con Google para recibir Premium regalado por Monchi o canjear un código.',
   'Encrypted cloud backup, automatic backups, CSV export': 'Copia cifrada en la nube, copias automáticas, exportar a CSV',
   'There is no backup in the cloud yet.': 'Todavía no hay una copia en la nube.',
   'Could not connect to the cloud. Check your internet connection and try again.': 'No se pudo conectar con la nube. Revisa tu conexión a internet e inténtalo de nuevo.',

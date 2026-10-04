@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -26,7 +27,7 @@ bool get cloudAvailable => _apiKey.isNotEmpty && _webClientId.isNotEmpty && Plat
 Future<void>? _ready;
 
 /// Starts Firebase and Google sign-in once; a failure is retried next call.
-Future<void> _ensureReady() => _ready ??= () async {
+Future<void> ensureCloudReady() => _ready ??= () async {
       try {
         await Firebase.initializeApp(
           options: const FirebaseOptions(
@@ -50,7 +51,7 @@ final cloudUserProvider = StreamProvider<String?>((ref) async* {
     yield null;
     return;
   }
-  await _ensureReady();
+  await ensureCloudReady();
   yield* FirebaseAuth.instance.authStateChanges().map((u) => u?.email);
 });
 
@@ -71,7 +72,7 @@ class CloudBackup {
 
   /// Returns false when the user closes the Google account picker.
   Future<bool> signIn() async {
-    await _ensureReady();
+    await ensureCloudReady();
     final GoogleSignInAccount account;
     try {
       account = await GoogleSignIn.instance.authenticate();
@@ -114,6 +115,12 @@ class CloudBackup {
       await _file(user).delete();
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
+    }
+    try {
+      // The admin panel row (refused for blocked accounts: the admin keeps it).
+      await FirebaseFirestore.instance.doc('users/${user.uid}').delete();
+    } on FirebaseException {
+      // Best effort; the account itself is deleted next.
     }
     try {
       await user.delete();

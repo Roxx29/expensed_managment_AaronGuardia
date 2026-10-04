@@ -25,7 +25,7 @@ class ExpenseManagerApp extends ConsumerWidget {
     // Keeps payment reminders and budget alerts in sync (no-op when off).
     ref.watch(notificationSyncProvider);
     // Listens for Google Play purchases from launch (none would be missed).
-    ref.listen(premiumProvider, (_, _) {});
+    ref.listen(playPremiumProvider, (_, _) {});
     return MaterialApp.router(
       title: 'Monchi',
       debugShowCheckedModeBanner: false,

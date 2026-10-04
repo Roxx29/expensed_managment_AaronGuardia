@@ -7,6 +7,8 @@ import '../../../app/routes.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../backup/application/cloud_backup.dart';
+import '../application/gift_providers.dart';
 import '../application/premium_providers.dart';
 
 /// True if Premium is active; otherwise opens the paywall and returns false.
@@ -133,9 +135,10 @@ class PaywallScreen extends ConsumerWidget {
                           ),
                         ],
                 ),
+              if (cloudAvailable) const _GiftCard(),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => ref.read(premiumProvider.notifier).refresh(),
+                onPressed: () => ref.read(playPremiumProvider.notifier).refresh(),
                 child: Text(context.tr('Restore purchases')),
               ),
             ],
@@ -192,7 +195,7 @@ class _PlanCard extends ConsumerWidget {
                 onPressed: () async {
                   final failed = context.tr('Something went wrong. Try again.');
                   final messenger = ScaffoldMessenger.of(context);
-                  if (!await ref.read(premiumProvider.notifier).buy(product)) {
+                  if (!await ref.read(playPremiumProvider.notifier).buy(product)) {
                     messenger.showSnackBar(SnackBar(content: Text(failed)));
                   }
                 },
@@ -204,6 +207,121 @@ class _PlanCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Premium given by Monchi (e-mail gift or promo code) needs a Google account.
+class _GiftCard extends ConsumerStatefulWidget {
+  const _GiftCard();
+
+  @override
+  ConsumerState<_GiftCard> createState() => _GiftCardState();
+}
+
+class _GiftCardState extends ConsumerState<_GiftCard> {
+  bool _busy = false;
+
+  Future<void> _run(Future<String?> Function() task) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final failed = context.tr('Could not connect to the cloud. Check your internet connection and try again.');
+    try {
+      final message = await task();
+      if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
+    } on Object {
+      messenger.showSnackBar(SnackBar(content: Text(failed)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<String?> _askCode() => showDialog<String>(context: context, builder: (_) => const _CodeDialog());
+
+  @override
+  Widget build(BuildContext context) {
+    final email = ref.watch(cloudUserProvider).value;
+    final texts = {
+      RedeemResult.redeemed: context.tr('Code redeemed. Enjoy Monchi Premium!'),
+      RedeemResult.invalid: context.tr('This code does not exist or has expired.'),
+      RedeemResult.used: context.tr('This code was already used.'),
+      RedeemResult.alreadyRedeemed: context.tr('You already redeemed a code.'),
+    };
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.tr('Have a code or a gift?'), style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              email == null
+                  ? context.tr('Sign in with Google to receive Premium gifted by Monchi or to redeem a code.')
+                  : context.tr('Signed in as {email}', {'email': email}),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            if (email == null)
+              FilledButton.tonalIcon(
+                onPressed: _busy
+                    ? null
+                    : () => _run(() async {
+                          await ref.read(cloudBackupProvider).signIn();
+                          return null;
+                        }),
+                icon: const Icon(Icons.login_rounded),
+                label: Text(context.tr('Sign in with Google')),
+              )
+            else
+              FilledButton.tonalIcon(
+                onPressed: _busy
+                    ? null
+                    : () => _run(() async {
+                          final code = await _askCode();
+                          if (code == null || code.trim().isEmpty) return null;
+                          return texts[await ref.read(giftActionsProvider).redeem(code)];
+                        }),
+                icon: const Icon(Icons.redeem_rounded),
+                label: Text(context.tr('Redeem a code')),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CodeDialog extends StatefulWidget {
+  const _CodeDialog();
+
+  @override
+  State<_CodeDialog> createState() => _CodeDialogState();
+}
+
+class _CodeDialogState extends State<_CodeDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(context.tr('Redeem a code')),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: InputDecoration(labelText: context.tr('Code')),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: Text(context.tr('Redeem'))),
+        ],
+      );
 }
 
 class _Unavailable extends StatelessWidget {
