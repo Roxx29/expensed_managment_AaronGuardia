@@ -56,7 +56,8 @@ final cloudUserProvider = StreamProvider<String?>((ref) async* {
     return;
   }
   await ensureCloudReady();
-  yield* FirebaseAuth.instance.authStateChanges().map((u) => u?.email);
+  // userChanges also fires when the e-mail gets verified (after reload()).
+  yield* FirebaseAuth.instance.userChanges().map((u) => u?.email);
 });
 
 final cloudBackupProvider = Provider<CloudBackup>(CloudBackup.new);
@@ -98,6 +99,48 @@ class CloudBackup {
     await FirebaseAuth.instance
         .signInWithCredential(GoogleAuthProvider.credential(idToken: account.authentication.idToken));
     return true;
+  }
+
+  /// E-mail + password accounts (Firebase › Authentication › Email/Password).
+  Future<void> signInWithEmail(String email, String password) async {
+    await ensureCloudReady();
+    await FirebaseAuth.instance.signInWithEmailAndPassword(email: email.trim(), password: password);
+  }
+
+  /// Creates the account and sends the verification e-mail (gifts and the
+  /// admin panel only trust verified e-mails, see firestore.rules).
+  Future<void> register(String email, String password) async {
+    await ensureCloudReady();
+    final credential =
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email.trim(), password: password);
+    try {
+      await credential.user?.sendEmailVerification();
+    } on FirebaseAuthException {
+      // The account exists; "Send the e-mail again" covers a failed send.
+    }
+  }
+
+  Future<void> resetPassword(String email) async {
+    await ensureCloudReady();
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      // Same answer whether or not the account exists (no e-mail enumeration).
+      if (e.code != 'user-not-found') rethrow;
+    }
+  }
+
+  /// False for an e-mail account that hasn't opened the verification link yet.
+  bool get emailVerified => FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+
+  Future<void> resendVerification() async => FirebaseAuth.instance.currentUser?.sendEmailVerification();
+
+  /// Picks up a verification done in the e-mail app (cloudUserProvider updates).
+  /// Also refreshes the ID token: firestore.rules read email_verified from it.
+  Future<void> reloadUser() async {
+    await FirebaseAuth.instance.currentUser?.reload();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.emailVerified) await user.getIdToken(true);
   }
 
   Future<void> signOut() async {
@@ -182,7 +225,8 @@ class CloudBackup {
     try {
       await user.delete();
     } on FirebaseAuthException catch (e) {
-      if (e.code != 'requires-recent-login') rethrow;
+      // E-mail accounts must sign in again by hand (backup_screen explains).
+      if (e.code != 'requires-recent-login' || !user.providerData.any((p) => p.providerId == 'google.com')) rethrow;
       // Re-authenticates this same user; another Google account fails with
       // `user-mismatch` instead of being deleted.
       final account = await GoogleSignIn.instance.authenticate();

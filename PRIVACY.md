@@ -8,8 +8,8 @@ Monchi es una app para llevar tus gastos. Está hecha para que tus datos sean so
 
 **Datos en tu teléfono.** Tus movimientos, presupuestos, metas, categorías y ajustes se guardan solo en tu teléfono. Monchi no tiene servidores propios, no muestra anuncios, no usa analítica y no vende ni comparte datos.
 
-**Copia en la nube (Monchi Premium, opcional).** Si inicias sesión con Google (copia en la nube, códigos o Premium regalado):
-- Guardamos tu correo, tu nombre de Google y un identificador de cuenta en Firebase (Google) para saber qué copia es tuya y qué Premium tienes. También guardamos la fecha en que abriste la app por última vez, su versión y si pagas Premium, para atender soporte y regalos de Premium.
+**Copia en la nube (Monchi Premium, opcional).** Si inicias sesión con tu correo o con Google (copia en la nube, códigos o Premium regalado):
+- Guardamos tu correo, tu nombre de Google (si entras con Google) y un identificador de cuenta en Firebase (Google) para saber qué copia es tuya y qué Premium tienes. Si creas una cuenta con correo, Firebase guarda tu contraseña protegida (nunca la vemos). También guardamos la fecha en que abriste la app por última vez, su versión y si pagas Premium, para atender soporte y regalos de Premium.
 - Tu copia se cifra en tu teléfono con una contraseña que solo tú conoces (AES-256-GCM) antes de subirla a Firebase Firestore (Google). Nadie más puede leerla, ni siquiera el desarrollador.
 - Los datos viajan cifrados (HTTPS) y se guardan en los servidores de Google Cloud.
 
@@ -33,8 +33,8 @@ Monchi is an expense tracker built so your data stays yours.
 
 **Data on your phone.** Transactions, budgets, goals, categories and settings are stored only on your phone. Monchi has no servers of its own, no ads, no analytics, and never sells or shares data.
 
-**Cloud backup (Monchi Premium, optional).** If you sign in with Google (cloud backup, codes or gifted Premium):
-- Your e-mail, Google name and an account id are stored in Firebase (Google) to know which backup and which Premium are yours. We also store when you last opened the app, its version and whether you pay for Premium, for support and Premium gifts.
+**Cloud backup (Monchi Premium, optional).** If you sign in with your e-mail or with Google (cloud backup, codes or gifted Premium):
+- Your e-mail, Google name (when you use Google) and an account id are stored in Firebase (Google) to know which backup and which Premium are yours. For e-mail accounts Firebase keeps your password hashed (we never see it). We also store when you last opened the app, its version and whether you pay for Premium, for support and Premium gifts.
 - Your backup is encrypted on your phone with a passphrase only you know (AES-256-GCM) before it is uploaded to Firebase Firestore (Google). Nobody else can read it, not even the developer.
 - Data is sent over HTTPS and stored on Google Cloud servers.
 

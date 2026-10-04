@@ -256,7 +256,7 @@ class _GiftCardState extends ConsumerState<_GiftCard> {
             const SizedBox(height: 4),
             Text(
               email == null
-                  ? context.tr('Sign in with Google to receive Premium gifted by Monchi or to redeem a code.')
+                  ? context.tr('Sign in to receive Premium gifted by Monchi or to redeem a code.')
                   : context.tr('Signed in as {email}', {'email': email}),
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -265,12 +265,9 @@ class _GiftCardState extends ConsumerState<_GiftCard> {
               FilledButton.tonalIcon(
                 onPressed: _busy
                     ? null
-                    : () => _run(() async {
-                          await ref.read(cloudBackupProvider).signIn();
-                          return null;
-                        }),
+                    : () => context.push(Routes.welcome),
                 icon: const Icon(Icons.login_rounded),
-                label: Text(context.tr('Sign in with Google')),
+                label: Text(context.tr('Sign in')),
               )
             else
               FilledButton.tonalIcon(

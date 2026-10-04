@@ -40,6 +40,12 @@ class MoreScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => context.push(Routes.premium),
               ),
+              ListTile(
+                leading: const Icon(Icons.account_circle_rounded),
+                title: Text(context.tr('Your account')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push(Routes.welcome),
+              ),
               for (final (icon, label, route) in _entries)
                 ListTile(
                   leading: Icon(icon),

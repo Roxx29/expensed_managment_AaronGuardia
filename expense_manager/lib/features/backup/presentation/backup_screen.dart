@@ -2,8 +2,10 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart' show GoogleSignInException;
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../data/backup/backup_codec.dart';
@@ -16,7 +18,7 @@ import '../../premium/presentation/paywall_screen.dart';
 import '../application/backup_providers.dart';
 import '../application/cloud_backup.dart';
 
-String _errorMessage(BuildContext context, Object error) => switch (error) {
+String backupErrorMessage(BuildContext context, Object error) => switch (error) {
       BackupException(error: BackupError.tooLarge) => context.tr('The file is too large to be a backup.'),
       BackupException(error: BackupError.notABackup) => context.tr('This file is not a Monchi backup.'),
       BackupException(error: BackupError.newerVersion) =>
@@ -26,6 +28,8 @@ String _errorMessage(BuildContext context, Object error) => switch (error) {
         context.tr('The backup contains invalid data. Nothing was changed.'),
       BackupException(error: BackupError.wrongPassphrase) =>
         context.tr('Wrong passphrase, or the file is damaged. Nothing was changed.'),
+      FirebaseException(code: 'requires-recent-login') =>
+        context.tr('For your security, sign out, sign in again and repeat.'),
       FirebaseException(code: 'not-found') => context.tr('There is no backup in the cloud yet.'),
       FirebaseException() || GoogleSignInException() =>
         context.tr('Could not connect to the cloud. Check your internet connection and try again.'),
@@ -62,7 +66,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
     } on Object catch (e) {
       // The error text needs a live context; skip it if the screen was closed.
-      if (mounted) messenger.showSnackBar(SnackBar(content: Text(_errorMessage(context, e))));
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(backupErrorMessage(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -123,12 +127,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             FilledButton.tonalIcon(
               onPressed: _busy
                   ? null
-                  : () => _run(() async {
-                        await cloud.signIn();
-                        return null;
-                      }),
+                  : () => context.push(Routes.welcome),
               icon: const Icon(Icons.login_rounded),
-              label: Text(context.tr('Sign in with Google')),
+              label: Text(context.tr('Sign in')),
             )
           else ...[
             Text(context.tr('Signed in as {email}', {'email': email})),
