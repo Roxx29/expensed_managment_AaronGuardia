@@ -27,7 +27,8 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(notificationSyncProvider);
     // Listens for Google Play purchases from launch (none would be missed).
     ref.listen(playPremiumProvider, (_, _) {});
-    final premium = ref.watch(premiumProvider);
+    // Premium-only ambient background, switchable in Settings.
+    final ambient = ref.watch(premiumProvider) && (ref.watch(ambientBackgroundProvider).value ?? true);
     return MaterialApp.router(
       title: 'Monchi',
       debugShowCheckedModeBanner: false,
@@ -43,7 +44,7 @@ class ExpenseManagerApp extends ConsumerWidget {
       // Above the router: no screen or deep link renders before unlock.
       // The brand background sits behind every screen (scaffolds are transparent).
       builder: (context, child) => MonchiBackground(
-        isPremium: premium,
+        ambient: ambient,
         child: AppLockGate(child: child!),
       ),
     );

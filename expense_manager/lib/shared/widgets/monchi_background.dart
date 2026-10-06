@@ -25,24 +25,24 @@ abstract final class MonchiBackgroundStyle {
 
 /// Background behind every screen (app.dart builder). The scaffolds are
 /// transparent (app_theme.dart), so the background shows through.
-/// Free: the still brand picture. Premium: the same picture with soft lights
-/// drifting slowly over it.
+/// [ambient] (Premium + Settings switch on): the brand picture with soft
+/// lights drifting slowly over it. Otherwise a plain surface color.
 class MonchiBackground extends StatelessWidget {
   const MonchiBackground({
     super.key,
-    required this.isPremium,
+    required this.ambient,
     this.animationDuration = MonchiBackgroundStyle.loop,
     this.child,
   });
 
-  final bool isPremium;
+  final bool ambient;
   final Duration animationDuration;
   final Widget? child;
 
   @override
   Widget build(BuildContext context) {
-    // The system "remove animations" setting keeps Premium still too.
-    final animate = isPremium && !MediaQuery.disableAnimationsOf(context);
+    // The system "remove animations" setting keeps the picture still.
+    final still = MediaQuery.disableAnimationsOf(context);
     return Stack(
       fit: StackFit.expand,
       alignment: Alignment.topLeft,
@@ -50,9 +50,11 @@ class MonchiBackground extends StatelessWidget {
         // Repaints of the lights stay inside this layer; the screens on top
         // are never repainted by the background.
         RepaintBoundary(
-          child: animate
-              ? AnimatedMonchiBackground(duration: animationDuration)
-              : const StaticMonchiBackground(),
+          child: !ambient
+              ? ColoredBox(color: Theme.of(context).colorScheme.surface)
+              : still
+                  ? const StaticMonchiBackground()
+                  : AnimatedMonchiBackground(duration: animationDuration),
         ),
         if (child case final c?) c,
       ],
@@ -60,7 +62,7 @@ class MonchiBackground extends StatelessWidget {
   }
 }
 
-/// Free plan: the picture from ELEMENTOS/, no ticker, painted once.
+/// The brand picture, no ticker, painted once (base of the animated one).
 class StaticMonchiBackground extends StatelessWidget {
   const StaticMonchiBackground({super.key});
 

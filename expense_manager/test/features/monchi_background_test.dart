@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Widget app(bool premium, {bool reduceMotion = false}) => MaterialApp(
+  Widget app(bool ambient, {bool reduceMotion = false}) => MaterialApp(
         home: MediaQuery(
           data: MediaQueryData(disableAnimations: reduceMotion),
-          child: MonchiBackground(isPremium: premium),
+          child: MonchiBackground(ambient: ambient),
         ),
       );
 
-  testWidgets('free is static, Premium animates, reduce motion keeps it still', (tester) async {
+  testWidgets('off is a plain color, on animates, reduce motion keeps the picture still', (tester) async {
     await tester.pumpWidget(app(false));
-    expect(find.byType(StaticMonchiBackground), findsOneWidget);
+    expect(find.byType(StaticMonchiBackground), findsNothing);
     expect(find.byType(AnimatedMonchiBackground), findsNothing);
 
     await tester.pumpWidget(app(true));

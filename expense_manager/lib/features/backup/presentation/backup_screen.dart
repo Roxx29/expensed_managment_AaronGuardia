@@ -31,6 +31,8 @@ String backupErrorMessage(BuildContext context, Object error) => switch (error) 
       FirebaseException(code: 'requires-recent-login') =>
         context.tr('For your security, sign out, sign in again and repeat.'),
       FirebaseException(code: 'not-found') => context.tr('There is no backup in the cloud yet.'),
+      FirebaseException(code: 'permission-denied') =>
+        context.tr('The cloud did not allow this. If it keeps happening, contact support.'),
       FirebaseException() || GoogleSignInException() =>
         context.tr('Could not connect to the cloud. Check your internet connection and try again.'),
       _ => context.tr('Something went wrong. Nothing was changed.'),

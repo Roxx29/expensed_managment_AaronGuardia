@@ -49,12 +49,8 @@ abstract final class AppTheme {
         brightness == Brightness.light ? FinanceColors.light : FinanceColors.dark,
       ],
       appBarTheme: AppBarTheme(
-        // Clear over the background; solid once content scrolls under it.
-        backgroundColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.scrolledUnder)
-              ? scheme.surface.withValues(alpha: 0.94)
-              : Colors.transparent,
-        ),
+        // Always clear over the background, also while scrolling.
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         centerTitle: false,

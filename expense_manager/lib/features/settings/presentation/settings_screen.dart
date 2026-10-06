@@ -6,6 +6,8 @@ import '../../../core/layout/breakpoints.dart';
 import '../../../core/money/currency.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/settings_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -17,6 +19,8 @@ class SettingsScreen extends ConsumerWidget {
     final language = ref.watch(languageProvider).value?.languageCode ?? 'system';
     final currency = ref.watch(currencyProvider);
     final controller = ref.read(settingsControllerProvider);
+    final premium = ref.watch(premiumProvider);
+    final ambient = premium && (ref.watch(ambientBackgroundProvider).value ?? true);
 
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('Settings'))),
@@ -29,17 +33,32 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               SectionCard(
                 title: context.tr('Appearance'),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<ThemeMode>(
-                    segments: [
-                      ButtonSegment(value: ThemeMode.light, label: Text(context.tr('Light')), icon: const Icon(Icons.light_mode_rounded)),
-                      ButtonSegment(value: ThemeMode.dark, label: Text(context.tr('Dark')), icon: const Icon(Icons.dark_mode_rounded)),
-                      ButtonSegment(value: ThemeMode.system, label: Text(context.tr('System')), icon: const Icon(Icons.brightness_auto_rounded)),
-                    ],
-                    selected: {themeMode},
-                    onSelectionChanged: (selection) => controller.setThemeMode(selection.first),
-                  ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<ThemeMode>(
+                        segments: [
+                          ButtonSegment(value: ThemeMode.light, label: Text(context.tr('Light')), icon: const Icon(Icons.light_mode_rounded)),
+                          ButtonSegment(value: ThemeMode.dark, label: Text(context.tr('Dark')), icon: const Icon(Icons.dark_mode_rounded)),
+                          ButtonSegment(value: ThemeMode.system, label: Text(context.tr('System')), icon: const Icon(Icons.brightness_auto_rounded)),
+                        ],
+                        selected: {themeMode},
+                        onSelectionChanged: (selection) => controller.setThemeMode(selection.first),
+                      ),
+                    ),
+                    // Premium only: free users get the plain background and the paywall on tap.
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: Icon(premium ? Icons.auto_awesome_rounded : Icons.lock_rounded),
+                      title: Text(context.tr('Animated background')),
+                      subtitle: Text(context.tr('Soft brand lights moving behind the app. Premium.')),
+                      value: ambient,
+                      onChanged: (on) {
+                        if (requirePremium(context, ref)) controller.setAmbientBackground(on);
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),

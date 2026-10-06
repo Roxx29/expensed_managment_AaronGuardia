@@ -7,6 +7,7 @@ import '../../../shared/providers/providers.dart';
 abstract final class SettingKeys {
   static const themeMode = 'theme_mode';
   static const language = 'language';
+  static const ambientBackground = 'ambient_background';
 }
 
 /// Persisted theme preference; defaults to following the system.
@@ -25,6 +26,11 @@ final languageProvider = StreamProvider<Locale?>(
       .map((code) => code == 'en' || code == 'es' ? Locale(code!) : null),
 );
 
+/// Premium animated background switch (Settings › Appearance); on by default.
+final ambientBackgroundProvider = StreamProvider<bool>(
+  (ref) => ref.watch(settingsRepositoryProvider).watch(SettingKeys.ambientBackground).map((v) => v != 'off'),
+);
+
 final settingsControllerProvider = Provider<SettingsController>(SettingsController.new);
 
 /// Write-side of settings. Widgets call these methods; they never touch
@@ -40,6 +46,9 @@ class SettingsController {
   /// [locale] null = follow the device language.
   Future<void> setLanguage(Locale? locale) =>
       _ref.read(settingsRepositoryProvider).write(SettingKeys.language, locale?.languageCode ?? 'system');
+
+  Future<void> setAmbientBackground(bool on) =>
+      _ref.read(settingsRepositoryProvider).write(SettingKeys.ambientBackground, on ? 'on' : 'off');
 
   Future<void> setCurrency(Currency currency) async {
     final repo = _ref.read(profileRepositoryProvider);

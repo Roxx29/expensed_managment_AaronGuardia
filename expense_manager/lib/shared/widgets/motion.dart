@@ -202,8 +202,10 @@ class MonchiPageTransitionsBuilder extends PageTransitionsBuilder {
   @override
   Duration get reverseTransitionDuration => const Duration(milliseconds: 220);
 
-  static final _fadeOut = Tween<double>(begin: 1, end: 0).chain(CurveTween(curve: const Interval(0, 0.6)));
-  static final _fadeIn = CurveTween(curve: const Interval(0.2, 1, curve: Curves.easeOutCubic));
+  // Fade-through: the old page is gone (45%) before the new one starts (50%),
+  // so two transparent pages never show at the same time.
+  static final _fadeOut = Tween<double>(begin: 1, end: 0).chain(CurveTween(curve: const Interval(0, 0.45)));
+  static final _fadeIn = CurveTween(curve: const Interval(0.5, 1, curve: Curves.easeOutCubic));
   static final _slideIn = Tween(begin: const Offset(0.03, 0), end: Offset.zero)
       .chain(CurveTween(curve: Curves.easeOutCubic));
   static final _scaleIn = Tween<double>(begin: 0.95, end: 1).chain(CurveTween(curve: Curves.easeOutCubic));
