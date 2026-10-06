@@ -14,8 +14,12 @@ abstract interface class TransactionRepository {
 
   Stream<List<FinanceTransaction>> watchRecent({int limit = 10});
 
-  /// Every non-deleted transaction, newest first.
+  /// Every non-deleted transaction of the user's own money (not in a shared
+  /// wallet), newest first. The other personal queries skip wallets too.
   Stream<List<FinanceTransaction>> watchAll();
+
+  /// Non-deleted entries of the shared wallet [walletId], newest first.
+  Stream<List<FinanceTransaction>> watchWallet(String walletId);
 
   Future<FinanceTransaction?> getById(String id);
 
@@ -32,6 +36,18 @@ abstract interface class TransactionRepository {
   /// Inserts only transactions whose ID does not exist yet (deleted ones
   /// included). Used for idempotent auto-posting of recurring items.
   Future<void> insertMissing(List<FinanceTransaction> transactions);
+}
+
+abstract interface class WalletRepository {
+  /// Wallets the user belongs to (not left), A–Z.
+  Stream<List<Wallet>> watchAll();
+
+  /// [placeholder]: dated 2000-01-01 so the real wallet row from the first
+  /// sync wins the merge (used right after joining).
+  Future<void> save(Wallet wallet, {bool placeholder = false});
+
+  /// Soft delete ("Leave wallet"); its entries stay hidden in the database.
+  Future<void> delete(String id);
 }
 
 abstract interface class CategoryRepository {

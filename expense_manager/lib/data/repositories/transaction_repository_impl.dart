@@ -18,6 +18,7 @@ class DriftTransactionRepository implements TransactionRepository {
     final query = _db.select(_t)
       ..where((t) =>
           t.deletedAt.isNull() &
+          t.walletId.isNull() &
           t.occurredAt.isBiggerOrEqualValue(from) &
           t.occurredAt.isSmallerThanValue(toExclusive))
       ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]);
@@ -27,7 +28,7 @@ class DriftTransactionRepository implements TransactionRepository {
   @override
   Stream<List<FinanceTransaction>> watchRecent({int limit = 10}) {
     final query = _db.select(_t)
-      ..where((t) => t.deletedAt.isNull())
+      ..where((t) => t.deletedAt.isNull() & t.walletId.isNull())
       ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)])
       ..limit(limit);
     return query.watch().map((rows) => rows.map(_toEntity).toList());
@@ -38,7 +39,15 @@ class DriftTransactionRepository implements TransactionRepository {
   @override
   Stream<List<FinanceTransaction>> watchAll() {
     final query = _db.select(_t)
-      ..where((t) => t.deletedAt.isNull())
+      ..where((t) => t.deletedAt.isNull() & t.walletId.isNull())
+      ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]);
+    return query.watch().map((rows) => rows.map(_toEntity).toList());
+  }
+
+  @override
+  Stream<List<FinanceTransaction>> watchWallet(String walletId) {
+    final query = _db.select(_t)
+      ..where((t) => t.deletedAt.isNull() & t.walletId.equals(walletId))
       ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]);
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
@@ -56,7 +65,7 @@ class DriftTransactionRepository implements TransactionRepository {
     final total = _t.amountMinor.sum();
     final query = _db.selectOnly(_t)
       ..addColumns([_t.type, total])
-      ..where(_t.deletedAt.isNull() & _t.currencyCode.equals(currency.code))
+      ..where(_t.deletedAt.isNull() & _t.walletId.isNull() & _t.currencyCode.equals(currency.code))
       ..groupBy([_t.type]);
     return query.watch().map((rows) => {
           for (final row in rows)
@@ -95,6 +104,8 @@ class DriftTransactionRepository implements TransactionRepository {
             source: Value(tx.source),
             notes: Value(tx.notes),
             project: Value(tx.project?.trim().isEmpty ?? true ? null : tx.project!.trim()),
+            walletId: Value(tx.walletId),
+            createdBy: Value(tx.createdBy),
             updatedAt: Value(DateTime.now()),
             deletedAt: const Value(null),
           );
@@ -125,6 +136,8 @@ class DriftTransactionRepository implements TransactionRepository {
     if ((tx.notes?.length ?? 0) > _maxNotesLength) throw ArgumentError('too long', 'notes');
     if ((tx.source?.length ?? 0) > _maxDescriptionLength) throw ArgumentError('too long', 'source');
     if ((tx.project?.length ?? 0) > maxProjectLength) throw ArgumentError('too long', 'project');
+    if ((tx.walletId?.length ?? 0) > 64) throw ArgumentError('too long', 'walletId');
+    if ((tx.createdBy?.length ?? 0) > 128) throw ArgumentError('too long', 'createdBy');
   }
 
   static FinanceTransaction _toEntity(TransactionRecord r) => FinanceTransaction(
@@ -140,5 +153,7 @@ class DriftTransactionRepository implements TransactionRepository {
         source: r.source,
         notes: r.notes,
         project: r.project,
+        walletId: r.walletId,
+        createdBy: r.createdBy,
       );
 }

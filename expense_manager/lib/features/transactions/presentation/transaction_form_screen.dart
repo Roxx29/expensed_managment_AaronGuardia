@@ -15,6 +15,7 @@ import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
 import '../../../shared/widgets/motion.dart';
 import '../../import/presentation/receipt_scanner.dart';
+import '../../wallets/application/wallet_cloud.dart' show currentUid;
 import '../application/transaction_providers.dart';
 
 /// Values to prefill a new transaction with (e.g. from a scanned receipt).
@@ -33,16 +34,20 @@ class TransactionFormScreen extends ConsumerWidget {
     this.transactionId,
     this.initialType = TransactionType.expense,
     this.draft,
+    this.walletId,
   });
 
   final String? transactionId;
   final TransactionType initialType;
   final TransactionDraft? draft;
 
+  /// New entry in this shared wallet (null = the user's own money).
+  final String? walletId;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = transactionId;
-    if (id == null) return _TransactionForm(initial: null, initialType: initialType, draft: draft);
+    if (id == null) return _TransactionForm(initial: null, initialType: initialType, draft: draft, walletId: walletId);
 
     return ref.watch(transactionByIdProvider(id)).when(
           data: (tx) => tx == null
@@ -67,11 +72,12 @@ class _MessageScaffold extends StatelessWidget {
 }
 
 class _TransactionForm extends ConsumerStatefulWidget {
-  const _TransactionForm({required this.initial, required this.initialType, this.draft});
+  const _TransactionForm({required this.initial, required this.initialType, this.draft, this.walletId});
 
   final FinanceTransaction? initial;
   final TransactionType initialType;
   final TransactionDraft? draft;
+  final String? walletId;
 
   @override
   ConsumerState<_TransactionForm> createState() => _TransactionFormState();
@@ -344,6 +350,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       source: isIncome ? _optional(_source) : null,
       notes: _optional(_notes),
       project: _project.trim().isEmpty ? null : _project.trim(),
+      walletId: widget.initial?.walletId ?? widget.walletId,
+      createdBy: widget.initial?.createdBy ?? ((widget.initial?.walletId ?? widget.walletId) == null ? null : currentUid),
     );
 
     setState(() => _saving = true);

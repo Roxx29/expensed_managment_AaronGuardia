@@ -103,6 +103,24 @@ class Transactions extends Table with SyncColumns {
 
   /// Project or client (schema v2); null = personal.
   TextColumn get project => text().nullable()();
+
+  /// Shared wallet (schema v3); null = personal. No foreign key: a wallet's
+  /// rows can arrive before the wallet itself during a sync.
+  TextColumn get walletId => text().nullable()();
+
+  /// Firebase uid of who recorded it (schema v3), for shared wallets.
+  TextColumn get createdBy => text().nullable()();
+}
+
+/// Shared wallets (schema v3), see claude/WALLETS.md.
+@DataClassName('WalletRecord')
+class Wallets extends Table with SyncColumns {
+  TextColumn get name => text()();
+  TextColumn get kind => textEnum<WalletKind>()();
+
+  /// base64url AES-256 key of the wallet's encrypted cloud copy.
+  TextColumn get secret => text()();
+  TextColumn get ownerUid => text().nullable()();
 }
 
 /// Budgets are versioned by month range (yyyymm). `categoryId == null` is the

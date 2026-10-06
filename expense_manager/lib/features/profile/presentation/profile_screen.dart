@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,7 @@ import '../../../core/utils/validators.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../wallets/application/wallet_cloud.dart';
 import '../application/profile_providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -106,6 +109,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       } else {
         await actions.removePhoto();
       }
+      // The members of shared wallets see the new photo right away.
+      if (mounted) unawaited(ref.read(walletCloudProvider).syncAllQuietly());
     } on Object {
       messenger.showSnackBar(SnackBar(content: Text(failedText)));
     }
@@ -163,7 +168,13 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                Text(
+                  context.tr('Your photo and name are shown to the members of your shared wallets.'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _name,
                   maxLength: 80,

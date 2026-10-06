@@ -30,6 +30,7 @@ class ValidatedBackup {
     required this.transactions,
     required this.budgets,
     required this.settings,
+    this.wallets = const [],
   });
 
   final DateTime createdAt;
@@ -41,6 +42,9 @@ class ValidatedBackup {
   final List<TransactionRecord> transactions;
   final List<BudgetRecord> budgets;
   final List<SettingRecord> settings;
+
+  /// Shared wallets (schema v3; older backups have none).
+  final List<WalletRecord> wallets;
 }
 
 /// Converts the whole database to/from a single JSON document.
@@ -60,6 +64,7 @@ class BackupCodec {
   /// Settings under this prefix (PIN/lock state) are never exported or restored.
   static const securityKeyPrefix = 'security.';
 
+  /// Tables every backup has (`wallets` arrived in schema v3 and is optional).
   static const _tables = [
     'profiles',
     'categories',
@@ -71,20 +76,55 @@ class BackupCodec {
     'appSettings',
   ];
 
-  Future<String> encode({DateTime? now}) async {
-    final data = <String, Object?>{
-      'profiles': [for (final r in await _db.select(_db.profiles).get()) r.toJson()],
-      'categories': [for (final r in await _db.select(_db.categories).get()) r.toJson()],
-      'paymentMethods': [for (final r in await _db.select(_db.paymentMethods).get()) r.toJson()],
-      'recurringItems': [for (final r in await _db.select(_db.recurringItems).get()) r.toJson()],
-      'savingsGoals': [for (final r in await _db.select(_db.savingsGoals).get()) r.toJson()],
-      'transactions': [for (final r in await _db.select(_db.transactions).get()) r.toJson()],
-      'budgets': [for (final r in await _db.select(_db.budgets).get()) r.toJson()],
-      'appSettings': [
-        for (final r in await _db.select(_db.appSettings).get())
-          if (!r.key.startsWith(securityKeyPrefix)) r.toJson(),
-      ],
-    };
+  /// The whole database, or with [walletId] only what members of that shared
+  /// wallet see: its entries (deleted ones too, for sync), the categories and
+  /// payment methods they use and the wallet itself. Nothing personal.
+  /// Wallet keys are left out ('') unless [walletKeys]: only copies that are
+  /// encrypted with the user's passphrase (cloud backup/sync) carry them.
+  Future<String> encode({DateTime? now, String? walletId, bool walletKeys = false}) async {
+    Map<String, dynamic> wallet(WalletRecord r) => walletKeys ? r.toJson() : (r.toJson()..['secret'] = '');
+    final Map<String, Object?> data;
+    if (walletId == null) {
+      data = {
+        'profiles': [for (final r in await _db.select(_db.profiles).get()) r.toJson()],
+        'categories': [for (final r in await _db.select(_db.categories).get()) r.toJson()],
+        'paymentMethods': [for (final r in await _db.select(_db.paymentMethods).get()) r.toJson()],
+        'recurringItems': [for (final r in await _db.select(_db.recurringItems).get()) r.toJson()],
+        'savingsGoals': [for (final r in await _db.select(_db.savingsGoals).get()) r.toJson()],
+        'transactions': [for (final r in await _db.select(_db.transactions).get()) r.toJson()],
+        'budgets': [for (final r in await _db.select(_db.budgets).get()) r.toJson()],
+        'appSettings': [
+          for (final r in await _db.select(_db.appSettings).get())
+            if (!r.key.startsWith(securityKeyPrefix)) r.toJson(),
+        ],
+        'wallets': [for (final r in await _db.select(_db.wallets).get()) wallet(r)],
+      };
+    } else {
+      final rows = await (_db.select(_db.transactions)..where((t) => t.walletId.equals(walletId))).get();
+      final categoryIds = {for (final t in rows) ?t.categoryId};
+      final methodIds = {for (final t in rows) ?t.paymentMethodId};
+      data = {
+        'profiles': const <Object?>[],
+        'categories': [
+          if (categoryIds.isNotEmpty)
+            for (final r in await (_db.select(_db.categories)..where((c) => c.id.isIn(categoryIds))).get())
+              r.toJson(),
+        ],
+        'paymentMethods': [
+          if (methodIds.isNotEmpty)
+            for (final r in await (_db.select(_db.paymentMethods)..where((m) => m.id.isIn(methodIds))).get())
+              r.toJson(),
+        ],
+        'recurringItems': const <Object?>[],
+        'savingsGoals': const <Object?>[],
+        'transactions': [for (final r in rows) r.toJson()],
+        'budgets': const <Object?>[],
+        'appSettings': const <Object?>[],
+        'wallets': [
+          for (final r in await (_db.select(_db.wallets)..where((w) => w.id.equals(walletId))).get()) wallet(r),
+        ],
+      };
+    }
     final dataJson = jsonEncode(data);
     return jsonEncode({
       'format': format,
@@ -145,6 +185,7 @@ class BackupCodec {
         settings: rows('appSettings', SettingRecord.fromJson)
             .where((s) => !s.key.startsWith(securityKeyPrefix))
             .toList(),
+        wallets: data.containsKey('wallets') ? rows('wallets', WalletRecord.fromJson) : const [],
       );
     } on Object {
       // Wrong types, unknown enum names, missing fields…
@@ -166,7 +207,10 @@ class BackupCodec {
           t.description.length <= 200 &&
           (t.notes?.length ?? 0) <= 1000 &&
           (t.source?.length ?? 0) <= 200 &&
-          (t.project == null || (t.project!.isNotEmpty && t.project!.trim() == t.project && t.project!.length <= 60))) &&
+          (t.project == null || (t.project!.isNotEmpty && t.project!.trim() == t.project && t.project!.length <= 60)) &&
+          (t.walletId?.length ?? 0) <= 64 &&
+          (t.createdBy?.length ?? 0) <= 128) &&
+      b.wallets.every((w) => w.name.trim().isNotEmpty && w.name.length <= 50 && w.secret.length <= 64) &&
       b.recurringItems.every((r) => r.interval <= 366 && (r.notes?.length ?? 0) <= 1000) &&
       b.settings.every((s) => s.key.length <= 100 && s.value.length <= 10000);
 
@@ -179,6 +223,7 @@ class BackupCodec {
     'savings_goals',
     'transactions',
     'budgets',
+    'wallets',
   ];
 
   /// Changes whenever a synced row is added or edited: row count, newest and
@@ -214,6 +259,12 @@ class BackupCodec {
         await _db.delete(_db.categories).go();
         await _db.delete(_db.paymentMethods).go();
         await _db.delete(_db.profiles).go();
+        // Plain backups carry no wallet keys: keep the ones this phone has.
+        final keys = {for (final w in await _db.select(_db.wallets).get()) w.id: w.secret};
+        final wallets = [
+          for (final w in backup.wallets) w.secret.isEmpty && keys[w.id] != null ? w.copyWith(secret: keys[w.id]) : w,
+        ];
+        await _db.delete(_db.wallets).go();
         // Security settings (PIN/lock) are device-local: never replaced.
         if (!keepSettings) {
           await (_db.delete(_db.appSettings)..where((s) => s.key.like('$securityKeyPrefix%').not())).go();
@@ -226,11 +277,15 @@ class BackupCodec {
           b.insertAll(_db.savingsGoals, backup.savingsGoals);
           b.insertAll(_db.transactions, backup.transactions);
           b.insertAll(_db.budgets, backup.budgets);
+          b.insertAll(_db.wallets, wallets);
           if (!keepSettings) b.insertAll(_db.appSettings, backup.settings);
         });
         if (!keepSettings) {
           for (final t in _syncedTables) {
-            await _db.customStatement("UPDATE $t SET updated_at = CAST(strftime('%s', 'now') AS INTEGER)");
+            // Shared-wallet entries keep their dates: restoring an old personal
+            // backup must not undo the other members' changes.
+            final personal = t == 'transactions' ? ' WHERE wallet_id IS NULL' : '';
+            await _db.customStatement("UPDATE $t SET updated_at = CAST(strftime('%s', 'now') AS INTEGER)$personal");
           }
         }
         // Checked here (not at COMMIT) so a broken reference rolls back reliably.
@@ -247,8 +302,120 @@ class BackupCodec {
       throw const BackupException(BackupError.invalidData);
     }
   }
+
+  /// Like [fingerprint], for one shared wallet's entries and wallet row.
+  Future<String> walletFingerprint(String walletId) async {
+    final rows = await _db.customSelect(
+      "SELECT 't' AS t, COUNT(*) AS c, MAX(updated_at) AS m, SUM(updated_at) AS s FROM transactions WHERE wallet_id = ? "
+      "UNION ALL SELECT 'w', COUNT(*), MAX(updated_at), SUM(updated_at) FROM wallets WHERE id = ?",
+      variables: [Variable.withString(walletId), Variable.withString(walletId)],
+    ).get();
+    return rows.map((r) => '${r.data['t']}:${r.data['c']}:${r.data['m']}:${r.data['s']}').join('|');
+  }
+
+  /// Applies a merged shared-wallet snapshot (see [scopeToWallet]) without
+  /// touching anything personal: only rows of [walletId] are written, the
+  /// wallet keeps this phone's [secret], categories and payment methods are
+  /// only added when missing (a member's renames never change mine), and a
+  /// reference to an unknown one is cleared instead of failing.
+  Future<void> applyWallet(
+    ValidatedBackup merged,
+    String walletId, {
+    required String secret,
+    required String expectFingerprint,
+  }) async {
+    try {
+      await _db.transaction(() async {
+        if (await walletFingerprint(walletId) != expectFingerprint) throw const LocalDataChanged();
+        await _db.customStatement('PRAGMA defer_foreign_keys = ON');
+        final entries = [for (final t in merged.transactions) if (t.walletId == walletId) t];
+        // A row with the same id that is personal or in another wallet is
+        // never taken over.
+        final ids = {for (final t in entries) t.id};
+        final foreign = ids.isEmpty
+            ? const <String>{}
+            : {
+                for (final t in await (_db.select(_db.transactions)
+                      ..where((t) => t.id.isIn(ids) & (t.walletId.isNull() | t.walletId.equals(walletId).not())))
+                    .get())
+                  t.id,
+              };
+        // Only the categories/payment methods these entries use (at most 100
+        // each), added when missing and never as "default" ones.
+        final usedCategories = {for (final t in entries) ?t.categoryId};
+        final usedMethods = {for (final t in entries) ?t.paymentMethodId};
+        await _db.batch((b) {
+          b.insertAll(
+            _db.categories,
+            [for (final c in merged.categories) if (usedCategories.contains(c.id)) c.copyWith(isDefault: false)]
+                .take(100)
+                .toList(),
+            mode: InsertMode.insertOrIgnore,
+          );
+          b.insertAll(
+            _db.paymentMethods,
+            [for (final m in merged.paymentMethods) if (usedMethods.contains(m.id)) m.copyWith(isDefault: false)]
+                .take(100)
+                .toList(),
+            mode: InsertMode.insertOrIgnore,
+          );
+        });
+        final categoryIds = {for (final c in await _db.select(_db.categories).get()) c.id};
+        final methodIds = {for (final m in await _db.select(_db.paymentMethods).get()) m.id};
+        await _db.batch((b) {
+          b.insertAllOnConflictUpdate(_db.transactions, [
+            for (final t in entries)
+              if (!foreign.contains(t.id))
+                t.copyWith(
+                  categoryId: Value(categoryIds.contains(t.categoryId) ? t.categoryId : null),
+                  paymentMethodId: Value(methodIds.contains(t.paymentMethodId) ? t.paymentMethodId : null),
+                  // Personal links never cross into a shared wallet.
+                  recurringItemId: const Value(null),
+                  savingsGoalId: const Value(null),
+                ),
+          ]);
+          b.insertAllOnConflictUpdate(_db.wallets, [
+            for (final w in merged.wallets)
+              if (w.id == walletId) w.copyWith(secret: secret, deletedAt: const Value(null)),
+          ]);
+        });
+        if ((await _db.customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {
+          throw const BackupException(BackupError.invalidData);
+        }
+      });
+    } on BackupException {
+      rethrow;
+    } on LocalDataChanged {
+      rethrow;
+    } on Object {
+      throw const BackupException(BackupError.invalidData);
+    }
+  }
 }
 
+/// Only what a shared wallet's snapshot may change: entries and wallet row
+/// of [walletId] (a member's file can't reach personal data or other
+/// wallets). Categories and payment methods are kept for [BackupCodec.applyWallet].
+/// Rows dated after [notAfter] are dropped, so a member can't make an entry
+/// win every future merge with a far-future date.
+ValidatedBackup scopeToWallet(ValidatedBackup b, String walletId, {DateTime? notAfter}) => ValidatedBackup(
+      createdAt: b.createdAt,
+      profiles: const [],
+      categories: b.categories,
+      paymentMethods: b.paymentMethods,
+      recurringItems: const [],
+      savingsGoals: const [],
+      transactions: [
+        for (final t in b.transactions)
+          if (t.walletId == walletId && (notAfter == null || !t.updatedAt.isAfter(notAfter))) t,
+      ],
+      budgets: const [],
+      settings: const [],
+      wallets: [
+        for (final w in b.wallets)
+          if (w.id == walletId && (notAfter == null || !w.updatedAt.isAfter(notAfter))) w,
+      ],
+    );
 
 /// The local data changed while a sync was running; nothing was replaced.
 class LocalDataChanged implements Exception {
@@ -314,6 +481,7 @@ MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote) {
     transactions: merge(local.transactions, remote.transactions, (r) => r.id, (r) => r.updatedAt),
     budgets: merge(local.budgets, remote.budgets, (r) => r.id, (r) => r.updatedAt),
     settings: local.settings,
+    wallets: merge(local.wallets, remote.wallets, (r) => r.id, (r) => r.updatedAt),
   );
   return MergeResult(merged, localChanged: localChanged, remoteChanged: remoteChanged);
 }

@@ -28,7 +28,7 @@ void main() {
       'Home', 'Transactions', 'Budgets', 'Statistics', 'More', 'Subscriptions',
       'Recurring expenses', 'Savings goals', 'Categories & payment methods',
       'Profile', 'Backup & restore', 'Settings', 'Assistant',
-      'Import bank statement', 'Security', 'Notifications',
+      'Import bank statement', 'Security', 'Notifications', 'Wallets',
     ];
     for (final en in [...dynamicKeys, ...countries.values, for (final c in Currency.values) c.displayName]) {
       expect(esStrings, contains(en));

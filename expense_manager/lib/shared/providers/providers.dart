@@ -7,6 +7,7 @@ import '../../data/repositories/catalog_repositories_impl.dart';
 import '../../data/repositories/planning_repositories_impl.dart';
 import '../../data/repositories/profile_settings_repositories_impl.dart';
 import '../../data/repositories/transaction_repository_impl.dart';
+import '../../data/repositories/wallet_repository_impl.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/insights/insights.dart';
 import '../../domain/repositories/repositories.dart';
@@ -42,6 +43,10 @@ final recurringItemRepositoryProvider = Provider<RecurringItemRepository>(
 
 final profileRepositoryProvider = Provider<ProfileRepository>(
   (ref) => DriftProfileRepository(ref.watch(appDatabaseProvider)),
+);
+
+final walletRepositoryProvider = Provider<WalletRepository>(
+  (ref) => DriftWalletRepository(ref.watch(appDatabaseProvider)),
 );
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(

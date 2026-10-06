@@ -22,6 +22,7 @@ part 'app_database.g.dart';
     Budgets,
     AppSettings,
     BackupRecords,
+    Wallets,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -29,7 +30,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'expense_manager'));
 
   /// Bump on every schema change and add a step in [migration].
-  static const int currentSchemaVersion = 2;
+  static const int currentSchemaVersion = 3;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -52,6 +53,12 @@ class AppDatabase extends _$AppDatabase {
                 [_seedSeconds, _seedSeconds],
               );
             }
+          }
+          if (from < 3) {
+            // v3: shared wallets.
+            await m.createTable(wallets);
+            await m.addColumn(transactions, transactions.walletId);
+            await m.addColumn(transactions, transactions.createdBy);
           }
         },
         beforeOpen: (details) async {

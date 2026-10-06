@@ -17,12 +17,15 @@ abstract final class Routes {
   static const notifications = '/more/notifications';
   static const importStatement = '/more/import';
   static const assistant = '/more/assistant';
+  static const wallets = '/more/wallets';
 
   // Full-screen routes (outside the tab shell).
   static const premium = '/premium';
   static const welcome = '/welcome';
   static const newTransaction = '/transaction/new';
   static String editTransaction(String id) => '/transaction/$id';
+  static String newWalletTransaction(String walletId) => '$newTransaction?wallet=$walletId';
+  static String wallet(String id) => '/wallet/$id';
   static const newRecurring = '/recurring/new';
   static String newRecurringOfKind(String kind) => '$newRecurring?kind=$kind';
   static String editRecurring(String id) => '/recurring/$id';

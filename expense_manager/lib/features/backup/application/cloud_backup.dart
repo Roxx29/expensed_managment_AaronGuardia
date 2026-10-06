@@ -236,7 +236,7 @@ class CloudBackup {
   /// ('' = none), else [CloudChanged]. Returns the new version.
   Future<String> upload(String passphrase, {String? expectVersion}) async {
     final uid = _user.uid;
-    final encrypted = await encryptBackup(await _ref.read(backupServiceProvider).encode(), passphrase);
+    final encrypted = await encryptBackup(await _ref.read(backupServiceProvider).encode(walletKeys: true), passphrase);
     // Always above the version being replaced (even with a phone clock that
     // runs behind), so "older than" in the chunk cleanup means "replaced".
     final floor = int.tryParse(expectVersion ?? '${(await _meta(uid).get()).data()?['version'] ?? ''}') ?? 0;
@@ -304,7 +304,7 @@ class CloudBackup {
             rethrow;
           }
         }
-        final result = remote == null ? null : mergeBackups(await BackupCodec.validate(await codec.encode()), remote);
+        final result = remote == null ? null : mergeBackups(await BackupCodec.validate(await codec.encode(walletKeys: true)), remote);
         var synced = before;
         if (result != null && result.localChanged) {
           await codec.restore(result.merged, keepSettings: true, expectFingerprint: before);

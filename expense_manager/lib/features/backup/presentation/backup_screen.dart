@@ -16,6 +16,7 @@ import '../../../domain/export/csv_export.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../premium/presentation/paywall_screen.dart';
+import '../../wallets/application/wallet_cloud.dart';
 import '../application/backup_providers.dart';
 import '../application/cloud_backup.dart';
 
@@ -281,6 +282,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       ? null
                       : () => _run(() async {
                             if (!await _confirmDeleteAccount()) return null;
+                            // Leave the shared wallets first (needs the account).
+                            final wallets = ref.read(walletCloudProvider);
+                            for (final w in await ref.read(walletRepositoryProvider).watchAll().first) {
+                              await wallets.leave(w, strict: true);
+                            }
                             await cloud.deleteAccount();
                             return deletedText;
                           }),

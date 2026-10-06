@@ -105,3 +105,61 @@ List<int> _randomBytes(int length) {
   final random = Random.secure();
   return List<int>.generate(length, (_) => random.nextInt(256));
 }
+
+/// Envelope of data encrypted with a shared wallet's random key (no KDF:
+/// the key is already 256 random bits, so this stays fast on every sync).
+const walletCipherFormat = 'monchi-wallet';
+
+/// A new random wallet key, base64url without padding (43 characters).
+String newWalletSecret() => base64Url.encode(_randomBytes(32)).replaceAll('=', '');
+
+List<int> _walletKey(String secret) {
+  final key = base64Url.decode(base64Url.normalize(secret));
+  if (key.length != 32) throw const FormatException('wallet key');
+  return key;
+}
+
+/// Encrypts [text] with the wallet key [secret] (AES-256-GCM).
+Future<String> encryptWithSecret(String text, String secret) {
+  final key = _walletKey(secret);
+  final nonce = _randomBytes(12);
+  return Isolate.run(() async {
+    final box = await AesGcm.with256bits().encrypt(utf8.encode(text), secretKey: SecretKey(key), nonce: nonce);
+    return jsonEncode({
+      'format': walletCipherFormat,
+      'v': 1,
+      'nonce': base64.encode(box.nonce),
+      'ct': base64.encode(box.cipherText),
+      'mac': base64.encode(box.mac.bytes),
+    });
+  });
+}
+
+/// Reverses [encryptWithSecret]. [BackupError.wrongPassphrase] for another
+/// key or modified data, [BackupError.corrupted] for a malformed envelope.
+Future<String> decryptWithSecret(String envelope, String secret) => Isolate.run(() async {
+      final SecretBox box;
+      final List<int> key;
+      try {
+        key = _walletKey(secret);
+        final root = jsonDecode(envelope) as Map<String, Object?>;
+        if (root['format'] != walletCipherFormat || root['v'] != 1) throw const FormatException();
+        final nonce = base64.decode(root['nonce']! as String);
+        final mac = base64.decode(root['mac']! as String);
+        if (nonce.length != 12 || mac.length != 16) throw const FormatException();
+        box = SecretBox(base64.decode(root['ct']! as String), nonce: nonce, mac: Mac(mac));
+      } on Object {
+        throw const BackupException(BackupError.corrupted);
+      }
+      final List<int> clear;
+      try {
+        clear = await AesGcm.with256bits().decrypt(box, secretKey: SecretKey(key));
+      } on SecretBoxAuthenticationError {
+        throw const BackupException(BackupError.wrongPassphrase);
+      }
+      try {
+        return utf8.decode(clear);
+      } on FormatException {
+        throw const BackupException(BackupError.corrupted);
+      }
+    });

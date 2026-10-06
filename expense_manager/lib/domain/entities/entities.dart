@@ -72,6 +72,8 @@ class FinanceTransaction {
     this.source,
     this.notes,
     this.project,
+    this.walletId,
+    this.createdBy,
   });
 
   final String id;
@@ -94,6 +96,31 @@ class FinanceTransaction {
 
   /// Project or client (freelancers); null = personal.
   final String? project;
+
+  /// Shared wallet this entry belongs to; null = the user's own money.
+  final String? walletId;
+
+  /// Account (Firebase uid) that recorded it, shown in shared wallets.
+  final String? createdBy;
+}
+
+/// A shared wallet (Cartera). [secret] is the base64url AES key that
+/// encrypts its cloud copy; it only travels inside invite codes and the
+/// user's own encrypted backup.
+class Wallet {
+  const Wallet({
+    required this.id,
+    required this.name,
+    required this.kind,
+    required this.secret,
+    this.ownerUid,
+  });
+
+  final String id;
+  final String name;
+  final WalletKind kind;
+  final String secret;
+  final String? ownerUid;
 }
 
 /// A monthly budget. `categoryId == null` is the global budget.

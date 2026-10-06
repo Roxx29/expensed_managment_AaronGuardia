@@ -8,6 +8,9 @@ enum TransactionType { expense, income, transfer, savings, savingsWithdrawal }
 
 enum CategoryKind { expense, income, both }
 
+/// Shared wallets (Carteras): a business, a family or anything else.
+enum WalletKind { business, family, other }
+
 enum PaymentMethodType {
   cash,
   debitCard,

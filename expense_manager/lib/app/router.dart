@@ -22,6 +22,8 @@ import '../features/settings/presentation/settings_screen.dart';
 import '../features/statistics/presentation/statistics_screen.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
+import '../features/wallets/presentation/wallet_screen.dart';
+import '../features/wallets/presentation/wallets_screen.dart';
 import '../shared/widgets/motion.dart';
 import 'adaptive_shell.dart';
 import 'more_screen.dart';
@@ -79,6 +81,7 @@ GoRouter _buildRouter() => GoRouter(
               // The first import is free (switching from another app); the
               // screen asks for Premium after that.
               GoRoute(path: 'import', builder: (_, _) => const ImportScreen()),
+              GoRoute(path: 'wallets', builder: (_, _) => const WalletsScreen()),
               GoRoute(
                 path: 'assistant',
                 builder: (context, _) => PremiumGate(title: context.tr('Assistant'), child: const AssistantScreen()),
@@ -99,9 +102,11 @@ GoRouter _buildRouter() => GoRouter(
           initialType: TransactionType.values.asNameMap()[state.uri.queryParameters['type']] ??
               TransactionType.expense,
           draft: state.extra is TransactionDraft ? state.extra! as TransactionDraft : null,
+          walletId: state.uri.queryParameters['wallet'],
         ),
       ),
     ),
+    GoRoute(path: '/wallet/:id', builder: (_, state) => WalletScreen(walletId: state.pathParameters['id']!)),
     GoRoute(
       path: '/transaction/:id',
       pageBuilder: (_, state) => _modal(state, TransactionFormScreen(transactionId: state.pathParameters['id'])),

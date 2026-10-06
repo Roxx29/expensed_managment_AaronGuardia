@@ -68,7 +68,8 @@ class BackupService {
   }
 
   /// Plain JSON of the current data, without saving a local backup.
-  Future<String> encode() => _codec.encode(now: _clock());
+  /// [walletKeys]: include shared-wallet keys (only for passphrase-encrypted copies).
+  Future<String> encode({bool walletKeys = false}) => _codec.encode(now: _clock(), walletKeys: walletKeys);
 
   Future<void> restore(BackupRecord record) async => restoreFromContent(await read(record));
 

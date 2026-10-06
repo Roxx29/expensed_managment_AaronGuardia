@@ -11,6 +11,7 @@ Monchi te ayuda a saber en qué se va tu dinero, sin complicarte.
 Anota un gasto en segundos, mira cuánto te queda del mes y recibe un aviso antes de pasarte del presupuesto. Todo se guarda en tu teléfono: funciona sin internet y no tiene anuncios.
 
 LO QUE PUEDES HACER GRATIS
+• Únete a la cartera de tu negocio o tu familia con un código: todos registran y ves quién lo hizo
 • Gastos e ingresos ilimitados, con categorías y método de pago
 • Presupuesto mensual y alertas cuando te acercas al límite
 • Inicio con tu dinero disponible, gastos del mes y próximos pagos
@@ -25,6 +26,7 @@ LO QUE PUEDES HACER GRATIS
 • Modo claro y oscuro, en español e inglés
 
 MONCHI PREMIUM
+• Crea carteras compartidas para tu negocio o tu familia, cifradas de extremo a extremo
 • Sincroniza tus teléfonos o comparte el presupuesto con tu pareja, siempre cifrado
 • Presupuestos por categoría, metas de ahorro, suscripciones y categorías sin límite
 • Estadísticas completas: resumen del año, por categoría e historial

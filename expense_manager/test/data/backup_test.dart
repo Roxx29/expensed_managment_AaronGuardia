@@ -15,6 +15,7 @@ import 'package:expense_manager/data/backup/backup_storage.dart';
 import 'package:expense_manager/data/database/app_database.dart';
 import 'package:expense_manager/data/repositories/profile_settings_repositories_impl.dart';
 import 'package:expense_manager/data/repositories/transaction_repository_impl.dart';
+import 'package:expense_manager/data/repositories/wallet_repository_impl.dart';
 import 'package:expense_manager/domain/backup/backup_policy.dart';
 import 'package:expense_manager/domain/entities/entities.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -202,6 +203,7 @@ void main() {
       ));
       final data = json['data'] as Map<String, dynamic>;
       ((data['transactions'] as List<dynamic>).single as Map<String, dynamic>).remove('project');
+      data.remove('wallets'); // also before shared wallets (schema v3)
       json['sha256'] = _sha(data);
       expect(await restoreError(jsonEncode(json)), isNull);
       expect((await transactions.watchAll().first).single.project, isNull);
@@ -228,6 +230,63 @@ void main() {
     await DriftSettingsRepository(db).write('theme_mode', 'light');
     await codec.restore(snapshot, keepSettings: true, expectFingerprint: await codec.fingerprint());
     expect(await DriftSettingsRepository(db).read('theme_mode'), 'light');
+  });
+
+  group('shared wallets', () {
+    setUp(() async {
+      await DriftWalletRepository(db)
+          .save(const Wallet(id: 'w1', name: 'Shop', kind: WalletKind.business, secret: 'k'));
+      await transactions.save(expense('personal', 100));
+      await transactions.save(FinanceTransaction(
+        id: 'shared',
+        type: TransactionType.expense,
+        amount: const Money(200, Currency.usd),
+        occurredAt: DateTime(2026, 9, 6),
+        categoryId: 'cat_food',
+        walletId: 'w1',
+        createdBy: 'u1',
+      ));
+    });
+
+    test('personal views skip wallet entries', () async {
+      expect((await transactions.watchAll().first).map((t) => t.id), ['personal']);
+      expect((await transactions.watchWallet('w1').first).map((t) => t.id), ['shared']);
+      expect((await transactions.watchWallet('w1').first).single.createdBy, 'u1');
+    });
+
+    test('a wallet snapshot holds only that wallet', () async {
+      final b = BackupCodec.parse(await BackupCodec(db).encode(walletId: 'w1'));
+      expect(b.transactions.map((t) => t.id), ['shared']);
+      expect(b.categories.map((c) => c.id), ['cat_food']);
+      expect(b.wallets.single.id, 'w1');
+      expect(b.profiles, isEmpty);
+      expect(b.settings, isEmpty);
+      expect(b.budgets, isEmpty);
+    });
+
+    test('applying a member snapshot writes only that wallet', () async {
+      final codec = BackupCodec(db);
+      final json = jsonDecode(await codec.encode(walletId: 'w1')) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>;
+      final list = data['transactions'] as List<dynamic>;
+      final shared = list.single as Map<String, dynamic>;
+      // A hostile or buggy member: a personal row, an unknown category and a
+      // renamed default category.
+      list
+        ..add({...shared, 'id': 'intruder', 'walletId': null})
+        ..add({...shared, 'id': 'new', 'categoryId': 'cat_missing'});
+      ((data['categories'] as List<dynamic>).single as Map<String, dynamic>)['name'] = 'Hacked';
+      json['sha256'] = _sha(data);
+      final remote = scopeToWallet(BackupCodec.parse(jsonEncode(json)), 'w1');
+      await codec.applyWallet(remote, 'w1', secret: 'k', expectFingerprint: await codec.walletFingerprint('w1'));
+
+      expect(await transactions.getById('intruder'), isNull);
+      final added = await transactions.getById('new');
+      expect(added?.walletId, 'w1');
+      expect(added?.categoryId, isNull);
+      final food = await (db.select(db.categories)..where((c) => c.id.equals('cat_food'))).getSingle();
+      expect(food.name, 'Food');
+    });
   });
 
   test('restore keeps this device\'s security settings', () async {

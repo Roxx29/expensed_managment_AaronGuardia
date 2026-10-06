@@ -19,6 +19,8 @@ import '../../../shared/widgets/transaction_tile.dart';
 import '../../backup/application/cloud_backup.dart';
 import '../../onboarding/welcome_screen.dart';
 import '../../premium/application/gift_providers.dart';
+import '../../wallets/application/wallet_providers.dart';
+import '../../wallets/presentation/wallet_widgets.dart';
 import '../application/dashboard_providers.dart';
 import 'insight_text.dart';
 
@@ -79,6 +81,7 @@ class _DashboardBody extends ConsumerWidget {
       if (ref.watch(announcementProvider).value != null) const _AnnouncementCard(),
       if (ref.watch(cloudBackupReminderProvider)) const _BackupReminderCard(),
       _BalanceCard(data: data),
+      _WalletsCard(data: data),
       _BudgetCard(data: data),
       if (data.insights.isNotEmpty) _AlertsCard(insights: data.insights),
     ];
@@ -247,6 +250,53 @@ class _AnnouncementCard extends ConsumerWidget {
       child: ListTile(
         leading: Icon(Icons.campaign_rounded, color: scheme.onSecondaryContainer),
         title: Text(text, style: TextStyle(color: scheme.onSecondaryContainer)),
+      ),
+    );
+  }
+}
+
+/// Your own money and every shared wallet (business, family) this month.
+class _WalletsCard extends ConsumerWidget {
+  const _WalletsCard({required this.data});
+
+  final DashboardSnapshot data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final wallets = ref.watch(walletsProvider).value ?? const <Wallet>[];
+    return SectionCard(
+      title: context.tr('Wallets'),
+      trailing: TextButton(
+        onPressed: () => context.go(Routes.wallets),
+        child: Text(wallets.isEmpty ? context.tr('Create or join') : context.tr('See all')),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.person_rounded),
+            title: Text(context.tr('Personal')),
+            subtitle: WalletMonthLine(summary: data.summary),
+            trailing: Text(data.summary.net.format(), style: const TextStyle(fontWeight: FontWeight.w800)),
+            onTap: () => context.go(Routes.transactions),
+          ),
+          for (final w in wallets)
+            Consumer(
+              builder: (context, ref, _) {
+                final summary = ref.watch(walletMonthSummaryProvider(w.id));
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(walletIcon(w.kind)),
+                  title: Text(w.name),
+                  subtitle: WalletMonthLine(summary: summary),
+                  trailing: summary == null
+                      ? null
+                      : Text(summary.net.format(), style: const TextStyle(fontWeight: FontWeight.w800)),
+                  onTap: () => context.push(Routes.wallet(w.id)),
+                );
+              },
+            ),
+        ],
       ),
     );
   }
