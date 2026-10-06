@@ -4,9 +4,22 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/strings_es.dart';
+import '../../../domain/import/category_memory.dart';
 import '../../../domain/import/csv_reader.dart';
 import '../../../domain/import/statement_import.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/common_widgets.dart' show categoryColors;
+import '../../premium/application/premium_providers.dart';
+
+/// App setting: '1' once a free user has used the free import.
+const _freeImportUsedKey = 'import.free_used';
+
+/// True when the next import needs Premium.
+final importNeedsPremiumProvider = StreamProvider<bool>((ref) {
+  final premium = ref.watch(premiumProvider);
+  return ref.watch(settingsRepositoryProvider).watch(_freeImportUsedKey).map((v) => !premium && v == '1');
+});
 
 /// A picked CSV file, parsed into rows (first row = header).
 class PickedStatement {
@@ -50,9 +63,36 @@ class ImportActions {
   /// Day-first unless the profile country is the US.
   bool get prefersMonthFirst => _ref.read(profileProvider).value?.countryCode == 'US';
 
-  /// Saves [transactions] (uncategorized). Rows imported before are skipped
-  /// because their IDs are deterministic.
-  Future<void> importAll(List<ImportedTransaction> transactions) => _ref
-      .read(transactionRepositoryProvider)
-      .insertMissing([for (final t in transactions) t.toTransaction()]);
+  /// Saves [imported] with a category: the one named in the file (created
+  /// when new) or the one used before for the same merchant. Rows imported
+  /// before are skipped because their IDs are deterministic. Uses up the
+  /// free import of a free user.
+  Future<void> importAll(List<ImportedTransaction> imported) async {
+    final categories = await _ref.read(categoryRepositoryProvider).watchAll(includeArchived: true).first;
+    final idByName = <String, String>{};
+    // Archived first, so an active category with the same name wins.
+    for (final c in [...categories.where((c) => c.archived), ...categories.where((c) => !c.archived)]) {
+      idByName[foldText(c.name)] = c.id;
+      final spanish = c.isDefault ? esDefaultNames[c.name] : null;
+      if (spanish != null) idByName[foldText(spanish)] = c.id;
+    }
+    final transactions = _ref.read(transactionRepositoryProvider);
+    final assignment = assignCategories(
+      imported,
+      idByName: idByName,
+      memory: learnCategories(await transactions.watchAll().first),
+      newCategoryColor: categoryColors.first,
+    );
+    // A renamed or archived imported category keeps its id: reuse it as is.
+    final existingIds = {for (final c in categories) c.id};
+    final premium = _ref.read(premiumProvider);
+    // All or nothing, so "Nothing was changed" is true when it fails.
+    await _ref.read(appDatabaseProvider).transaction(() async {
+      for (final c in assignment.newCategories) {
+        if (!existingIds.contains(c.id)) await _ref.read(categoryRepositoryProvider).save(c);
+      }
+      await transactions.insertMissing(assignment.transactions);
+      if (!premium) await _ref.read(settingsRepositoryProvider).write(_freeImportUsedKey, '1');
+    });
+  }
 }

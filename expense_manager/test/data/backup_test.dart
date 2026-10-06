@@ -86,7 +86,21 @@ void main() {
     expect(records.map((r) => r.origin), containsAll(['manual', 'safety']));
   });
 
-  test('security settings are never exported', () async {
+  test('the project of a transaction survives backup and restore', () async {
+    await transactions.save(FinanceTransaction(
+      id: 'p',
+      type: TransactionType.expense,
+      amount: const Money(500, Currency.usd),
+      occurredAt: DateTime(2026, 9, 5),
+      project: 'Acme',
+    ));
+    final backup = await service.create(BackupOrigin.manual);
+    await transactions.delete('p');
+    await service.restore(backup);
+    expect((await transactions.watchAll().first).single.project, 'Acme');
+  });
+
+    test('security settings are never exported', () async {
     await DriftSettingsRepository(db).write('security.pin_hash', 'secret');
     final content = await BackupCodec(db).encode();
     expect(content, isNot(contains('secret')));
@@ -174,6 +188,46 @@ void main() {
       json['sha256'] = _sha(data);
       expect(await restoreError(jsonEncode(json)), BackupError.invalidData);
     });
+
+    test('a v1 backup (before projects) still restores', () async {
+      final json = parsed()..['schemaVersion'] = 1;
+      // Changed after the backup, so the restore must replace it.
+      await transactions.save(FinanceTransaction(
+        id: 'a',
+        type: TransactionType.expense,
+        amount: const Money(1000, Currency.usd),
+        occurredAt: DateTime(2026, 9, 5),
+        categoryId: 'cat_food',
+        project: 'X',
+      ));
+      final data = json['data'] as Map<String, dynamic>;
+      ((data['transactions'] as List<dynamic>).single as Map<String, dynamic>).remove('project');
+      json['sha256'] = _sha(data);
+      expect(await restoreError(jsonEncode(json)), isNull);
+      expect((await transactions.watchAll().first).single.project, isNull);
+    });
+  });
+
+  test('sync restore aborts when local data changed since the snapshot', () async {
+    final codec = BackupCodec(db);
+    await transactions.save(expense('a', 1000));
+    final before = await codec.fingerprint();
+    final snapshot = BackupCodec.parse(await codec.encode());
+    await transactions.save(expense('b', 2000));
+    await expectLater(
+      codec.restore(snapshot, keepSettings: true, expectFingerprint: before),
+      throwsA(isA<LocalDataChanged>()),
+    );
+    expect((await transactions.watchAll().first).map((t) => t.id).toSet(), {'a', 'b'});
+  });
+
+  test('sync restore keeps this phone\'s settings', () async {
+    final codec = BackupCodec(db);
+    await DriftSettingsRepository(db).write('theme_mode', 'dark');
+    final snapshot = BackupCodec.parse(await codec.encode());
+    await DriftSettingsRepository(db).write('theme_mode', 'light');
+    await codec.restore(snapshot, keepSettings: true, expectFingerprint: await codec.fingerprint());
+    expect(await DriftSettingsRepository(db).read('theme_mode'), 'light');
   });
 
   test('restore keeps this device\'s security settings', () async {

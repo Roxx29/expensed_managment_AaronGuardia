@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'expense_manager'));
 
   /// Bump on every schema change and add a step in [migration].
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 2;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -41,12 +41,28 @@ class AppDatabase extends _$AppDatabase {
           await _seedDefaults();
         },
         onUpgrade: (m, from, to) async {
-          // Future: `if (from < 2) { await m.addColumn(...); }`
+          if (from < 2) {
+            // v2: project / client on transactions.
+            await m.addColumn(transactions, transactions.project);
+            // Untouched default rows (updated == created at install) get the
+            // old seed date, so a new phone's defaults never win a sync merge.
+            for (final t in const ['categories', 'payment_methods']) {
+              await customStatement(
+                'UPDATE $t SET created_at = ?, updated_at = ? WHERE is_default = 1 AND updated_at = created_at',
+                [_seedSeconds, _seedSeconds],
+              );
+            }
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
+
+  /// 2000-01-01 UTC in Drift's storage (unix seconds): seeded rows are older
+  /// than any edit, so sync never prefers an untouched default.
+  static const _seedSeconds = 946684800;
+  static final _seedDate = DateTime.fromMillisecondsSinceEpoch(_seedSeconds * 1000, isUtc: true);
 
   Future<void> _seedDefaults() => batch((b) {
         b.insertAll(categories, [
@@ -59,6 +75,8 @@ class AppDatabase extends _$AppDatabase {
               kind: c.kind,
               isDefault: const Value(true),
               sortOrder: Value(c.sortOrder),
+              createdAt: Value(_seedDate),
+              updatedAt: Value(_seedDate),
             ),
         ]);
         b.insertAll(paymentMethods, [
@@ -68,6 +86,8 @@ class AppDatabase extends _$AppDatabase {
               name: p.name,
               type: p.type,
               isDefault: const Value(true),
+              createdAt: Value(_seedDate),
+              updatedAt: Value(_seedDate),
             ),
         ]);
         b.insert(

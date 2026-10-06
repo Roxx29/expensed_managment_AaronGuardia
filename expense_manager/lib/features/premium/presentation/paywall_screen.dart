@@ -93,7 +93,8 @@ class PaywallScreen extends ConsumerWidget {
       (Icons.insights_rounded, context.tr('Full statistics: yearly highlights, categories and history')),
       (Icons.document_scanner_rounded, context.tr('Scan receipts and import bank statements')),
       (Icons.auto_awesome_rounded, context.tr('Finance assistant')),
-      (Icons.lock_rounded, context.tr('Automatic backups, also to the cloud (encrypted), and CSV export')),
+      (Icons.sync_rounded, context.tr('Sync between your phones or with your partner (encrypted)')),
+      (Icons.lock_rounded, context.tr('Automatic backups and CSV export')),
     ];
 
     return Scaffold(

@@ -5,11 +5,19 @@ import 'package:expense_manager/domain/export/csv_export.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  FinanceTransaction tx({String description = '', String? notes, String? categoryId}) => FinanceTransaction(
+  FinanceTransaction tx({
+    String description = '',
+    String? notes,
+    String? categoryId,
+    String? project,
+    DateTime? at,
+  }) =>
+      FinanceTransaction(
         id: 'a',
         type: TransactionType.expense,
         amount: const Money(123450, Currency.usd),
-        occurredAt: DateTime(2026, 9, 5, 8, 7),
+        occurredAt: at ?? DateTime(2026, 9, 5, 8, 7),
+        project: project,
         description: description,
         categoryId: categoryId,
         paymentMethodId: 'pm',
@@ -24,15 +32,15 @@ void main() {
 
   test('header and a plain row', () {
     expect(lines([tx(description: 'Lunch', categoryId: 'c')]), [
-      'date,type,amount,currency,description,category,payment_method,notes',
-      '2026-09-05 08:07,expense,1234.50,USD,Lunch,Food,Cash,',
+      'date,type,amount,currency,description,category,payment_method,notes,project',
+      '2026-09-05 08:07,expense,1234.50,USD,Lunch,Food,Cash,,',
       '',
     ]);
   });
 
   test('RFC 4180 quoting', () {
     final row = lines([tx(description: 'Pizza, "large"', notes: 'line1\nline2')]).sublist(1).join('\r\n');
-    expect(row, '2026-09-05 08:07,expense,1234.50,USD,"Pizza, ""large""",,Cash,"line1\nline2"\r\n');
+    expect(row, '2026-09-05 08:07,expense,1234.50,USD,"Pizza, ""large""",,Cash,"line1\nline2",\r\n');
   });
 
   test('formula injection is defused in text cells', () {
@@ -45,6 +53,36 @@ void main() {
 
   test('payment method column is empty without a resolver', () {
     final csv = transactionsToCsv([tx()], categoryName: (_) => '');
-    expect(csv.split('\r\n')[1], '2026-09-05 08:07,expense,1234.50,USD,,,,');
+    expect(csv.split('\r\n')[1], '2026-09-05 08:07,expense,1234.50,USD,,,,,');
+  });
+
+  test('project column', () {
+    expect(lines([tx(project: 'Acme')])[1], endsWith(',Acme'));
+  });
+
+  group('accountant export selection', () {
+    final now = DateTime(2026, 10, 6, 12);
+    final list = [
+      tx(at: DateTime(2026, 10, 1), project: 'Acme'),
+      tx(at: DateTime(2026, 9, 30, 23, 59)),
+      tx(at: DateTime(2026, 9, 1), project: 'Acme'),
+      tx(at: DateTime(2025, 12, 31)),
+    ];
+
+    test('periods', () {
+      expect(selectForExport(list, ExportPeriod.thisMonth, null, now), [list[0]]);
+      expect(selectForExport(list, ExportPeriod.lastMonth, null, now), [list[1], list[2]]);
+      expect(selectForExport(list, ExportPeriod.thisYear, null, now), list.take(3).toList());
+      expect(selectForExport(list, ExportPeriod.all, null, now), list);
+    });
+
+    test('last month in January is December of the previous year', () {
+      expect(selectForExport(list, ExportPeriod.lastMonth, null, DateTime(2026, 1, 15)), [list[3]]);
+    });
+
+    test('project filter: one project, or personal only', () {
+      expect(selectForExport(list, ExportPeriod.all, 'Acme', now), [list[0], list[2]]);
+      expect(selectForExport(list, ExportPeriod.all, '', now), [list[1], list[3]]);
+    });
   });
 }

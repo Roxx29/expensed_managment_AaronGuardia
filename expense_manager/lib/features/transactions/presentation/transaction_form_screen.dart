@@ -87,6 +87,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   late DateTime _occurredAt;
   String? _categoryId;
   String? _paymentMethodId;
+  String _project = '';
   bool _saving = false;
 
   bool get _isEditing => widget.initial != null;
@@ -104,6 +105,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     _occurredAt = tx?.occurredAt ?? draft?.occurredAt ?? DateTime.now();
     _categoryId = tx?.categoryId;
     _paymentMethodId = tx?.paymentMethodId;
+    _project = tx?.project ?? '';
   }
 
   @override
@@ -256,6 +258,29 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   onTap: _pickDateTime,
                 ),
                 const SizedBox(height: 8),
+                Autocomplete<String>(
+                  initialValue: TextEditingValue(text: _project),
+                  optionsBuilder: (value) {
+                    final q = value.text.trim().toLowerCase();
+                    return ref
+                        .read(projectsProvider)
+                        .where((p) => p.toLowerCase().contains(q) && p != value.text);
+                  },
+                  onSelected: (p) => _project = p,
+                  fieldViewBuilder: (context, controller, focusNode, _) => TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    maxLength: 60,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Project or client (optional)'),
+                      helperText: context.tr('Leave it empty for personal spending.'),
+                      prefixIcon: const Icon(Icons.work_outline_rounded),
+                    ),
+                    onChanged: (v) => _project = v,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: _notes,
                   maxLength: 1000,
@@ -318,6 +343,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       savingsGoalId: widget.initial?.savingsGoalId,
       source: isIncome ? _optional(_source) : null,
       notes: _optional(_notes),
+      project: _project.trim().isEmpty ? null : _project.trim(),
     );
 
     setState(() => _saving = true);

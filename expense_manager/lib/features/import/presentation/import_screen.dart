@@ -9,9 +9,12 @@ import '../../../domain/entities/entities.dart';
 import '../../../domain/import/statement_import.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../premium/application/premium_providers.dart';
+import '../../premium/presentation/paywall_screen.dart';
 import '../application/import_providers.dart';
 
-/// Imports a bank statement CSV: pick file → map columns → import.
+/// Imports a bank statement or another app's CSV: pick file → map columns →
+/// import. The first import is free; later ones need Premium.
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
 
@@ -22,7 +25,7 @@ class ImportScreen extends ConsumerStatefulWidget {
 class _ImportScreenState extends ConsumerState<ImportScreen> {
   PickedStatement? _file;
   int _loads = 0; // Resets the dropdowns when another file is picked.
-  int? _date, _description, _amount, _debit, _credit;
+  int? _date, _description, _amount, _debit, _credit, _type, _category;
   StatementDateFormat _format = StatementDateFormat.ymd;
   StatementImportResult? _result;
   bool _busy = false;
@@ -31,7 +34,15 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   List<List<String>> get _dataRows => _file?.rows.skip(1).toList() ?? const [];
 
   ColumnMapping get _mapping =>
-      ColumnMapping(date: _date, description: _description, amount: _amount, debit: _debit, credit: _credit);
+      ColumnMapping(
+        date: _date,
+        description: _description,
+        amount: _amount,
+        debit: _debit,
+        credit: _credit,
+        type: _type,
+        category: _category,
+      );
 
   void _detectFormat() {
     final col = _date;
@@ -68,6 +79,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         _amount = guess.amount;
         _debit = guess.debit;
         _credit = guess.credit;
+        _type = guess.type;
+        _category = guess.category;
         _detectFormat();
         _recompute();
       });
@@ -79,6 +92,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   }
 
   Future<void> _import(List<ImportedTransaction> transactions) async {
+    if ((ref.read(importNeedsPremiumProvider).value ?? false) && !requirePremium(context, ref)) return;
     final messenger = ScaffoldMessenger.of(context);
     final doneText = context.tr('Imported {count} transactions', {'count': transactions.length});
     final failedText = context.tr('Could not import. Nothing was changed.');
@@ -144,6 +158,19 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (!ref.watch(premiumProvider)) ...[
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.card_giftcard_rounded),
+                    title: Text(
+                      (ref.watch(importNeedsPremiumProvider).value ?? false)
+                          ? context.tr('You already used your free import. More imports are part of Monchi Premium.')
+                          : context.tr('Your first import is free, to bring your history from another app or your bank.'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               SectionCard(
                 title: context.tr('1. Choose a file'),
                 child: Column(
@@ -151,7 +178,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                   children: [
                     Text(
                       context.tr(
-                        'Export your statement from your bank as CSV (separated by commas, semicolons or tabs). The first row must contain the column names. Negative amounts or a debit column are imported as expenses; positive amounts or a credit column as income. Rows you already imported are skipped.',
+                        'Export your statement from your bank, or your data from Monefy, Spendee, Wallet, Money Manager or Excel, as CSV (separated by commas, semicolons or tabs). The first row must contain the column names. Negative amounts, a debit column or a type column saying expense are imported as expenses; the rest as income. Categories are kept, or learned from your earlier transactions. Rows you already imported are skipped.',
                       ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -199,6 +226,13 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                       const SizedBox(height: 8),
                       _columnField(context.tr('Debit (expenses)'), _debit, (v) => _debit = v),
                       _columnField(context.tr('Credit (income)'), _credit, (v) => _credit = v),
+                      Text(
+                        context.tr('Optional, for exports from other apps:'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      _columnField(context.tr('Type (expense / income)'), _type, (v) => _type = v),
+                      _columnField(context.tr('Category'), _category, (v) => _category = v),
                     ],
                   ),
                 ),
@@ -226,7 +260,11 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: Text(dateFormat.format(t.date)),
+                                subtitle: Text(
+                                  t.categoryName.isEmpty
+                                      ? dateFormat.format(t.date)
+                                      : '${dateFormat.format(t.date)} · ${t.categoryName}',
+                                ),
                                 trailing: Text(
                                   '${t.type == TransactionType.expense ? '-' : '+'}${t.amount.format()}',
                                   style: TextStyle(

@@ -100,6 +100,9 @@ class Transactions extends Table with SyncColumns {
   TextColumn get source => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get occurredAt => dateTime()();
+
+  /// Project or client (schema v2); null = personal.
+  TextColumn get project => text().nullable()();
 }
 
 /// Budgets are versioned by month range (yyyymm). `categoryId == null` is the

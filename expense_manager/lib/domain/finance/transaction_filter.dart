@@ -82,7 +82,7 @@ class TransactionFilter {
         return false;
       }
       if (q.isEmpty) return true;
-      return [t.description, t.notes, t.source, categoryNames[t.categoryId]]
+      return [t.description, t.notes, t.source, t.project, categoryNames[t.categoryId]]
           .any((field) => field != null && field.toLowerCase().contains(q));
     }
 

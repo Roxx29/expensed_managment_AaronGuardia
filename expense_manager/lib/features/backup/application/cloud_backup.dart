@@ -11,6 +11,7 @@ import '../../../data/backup/backup_codec.dart';
 import '../../../data/backup/backup_crypto.dart';
 import '../../../domain/backup/backup_policy.dart';
 import '../../../shared/providers/providers.dart';
+import '../../premium/application/premium_providers.dart';
 import 'backup_providers.dart';
 
 // Firebase project settings. They ship inside every APK and are not secret
@@ -120,7 +121,17 @@ final cloudBackupReminderProvider = Provider<bool>((ref) {
   );
 });
 
-/// Premium: every automatic backup is also uploaded to the cloud.
+/// `<cloud version>|<local fingerprint>` after the last sync: when both are
+/// unchanged, the next sync needs no download.
+const _syncedKey = 'backup.cloud_synced';
+
+/// Another phone replaced the cloud copy while this one was syncing.
+class CloudChanged implements Exception {
+  const CloudChanged();
+}
+
+/// Premium "Sync automatically": this phone and the cloud copy are merged
+/// on launch, on resume and with "Sync now".
 final cloudAutoUploadProvider = FutureProvider<bool>((ref) async {
   // Re-checked when the account changes.
   if (await ref.watch(cloudUserProvider.future) == null) return false;
@@ -220,11 +231,17 @@ class CloudBackup {
 
   /// Replaces the cloud backup with the current data. The new chunks are
   /// written first and the old ones deleted last, so a failed upload never
-  /// leaves the account without a complete backup.
-  Future<void> upload(String passphrase) async {
+  /// leaves the account without a complete backup. With [expectVersion]
+  /// (sync) the copy is only replaced if the cloud still has that version
+  /// ('' = none), else [CloudChanged]. Returns the new version.
+  Future<String> upload(String passphrase, {String? expectVersion}) async {
     final uid = _user.uid;
     final encrypted = await encryptBackup(await _ref.read(backupServiceProvider).encode(), passphrase);
-    final version = DateTime.now().millisecondsSinceEpoch.toString();
+    // Always above the version being replaced (even with a phone clock that
+    // runs behind), so "older than" in the chunk cleanup means "replaced".
+    final floor = int.tryParse(expectVersion ?? '${(await _meta(uid).get()).data()?['version'] ?? ''}') ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final version = (now > floor ? now : floor + 1).toString();
     final chunks = [
       for (var i = 0; i < encrypted.length; i += chunkSize)
         encrypted.substring(i, i + chunkSize < encrypted.length ? i + chunkSize : encrypted.length),
@@ -233,14 +250,80 @@ class CloudBackup {
     for (var i = 0; i < chunks.length; i++) {
       await _chunk(uid, version, i).set({'data': chunks[i]});
     }
-    await _meta(uid).set({
+    final meta = {
       'version': version,
       'chunks': chunks.length,
       'size': encrypted.length,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
-    await _deleteChunks(uid, keepVersion: version);
+    };
+    if (expectVersion == null) {
+      await _meta(uid).set(meta);
+    } else {
+      final committed = await FirebaseFirestore.instance.runTransaction<bool>((tx) async {
+        final current = (await tx.get(_meta(uid))).data()?['version'];
+        if ('${current ?? ''}' != expectVersion) return false;
+        tx.set(_meta(uid), meta);
+        return true;
+      });
+      if (!committed) {
+        for (var i = 0; i < chunks.length; i++) {
+          await _chunk(uid, version, i).delete();
+        }
+        throw const CloudChanged();
+      }
+    }
+    await _deleteChunks(uid, olderThan: version);
     await _markUploaded();
+    return version;
+  }
+
+  /// Merges this phone with the cloud copy (mergeBackups: the newest change
+  /// of each row wins, deletions included) and uploads the result when the
+  /// cloud lacks something. Retries when another phone or a local edit got
+  /// in between; then throws [CloudChanged] / [LocalDataChanged].
+  Future<void> sync(String passphrase) async {
+    final uid = _user.uid;
+    final codec = BackupCodec(_ref.read(appDatabaseProvider));
+    final settings = _ref.read(settingsRepositoryProvider);
+    for (var attempt = 1;; attempt++) {
+      try {
+        final meta = (await _meta(uid).get()).data();
+        final cloudVersion = '${meta?['version'] ?? ''}';
+        final before = await codec.fingerprint();
+        if (meta != null && await settings.read(_syncedKey) == '$cloudVersion|$before') return;
+        // A damaged copy (BackupError.corrupted) is never replaced here: the
+        // user can do it knowingly with "Upload to the cloud".
+        ValidatedBackup? remote;
+        if (meta != null) {
+          try {
+            remote = await BackupCodec.validate(await decryptBackup(await _download(uid, meta), passphrase));
+          } on BackupException catch (e) {
+            // A chunk vanished because another phone replaced the copy meanwhile: merge again.
+            final latest = '${(await _meta(uid).get()).data()?['version'] ?? ''}';
+            if (e.error == BackupError.corrupted && latest != cloudVersion) throw const CloudChanged();
+            rethrow;
+          }
+        }
+        final result = remote == null ? null : mergeBackups(await BackupCodec.validate(await codec.encode()), remote);
+        var synced = before;
+        if (result != null && result.localChanged) {
+          await codec.restore(result.merged, keepSettings: true, expectFingerprint: before);
+          synced = await codec.fingerprint();
+        }
+        // Taken before the upload encodes the data: an edit made meanwhile
+        // changes the fingerprint, so the next sync uploads it.
+        final version = result == null || result.remoteChanged
+            ? await upload(passphrase, expectVersion: cloudVersion)
+            : cloudVersion;
+        if (version == cloudVersion) await _markUploaded();
+        await settings.write(_syncedKey, '$version|$synced');
+        return;
+      } on CloudChanged {
+        if (attempt >= 3) rethrow;
+      } on LocalDataChanged {
+        if (attempt >= 3) rethrow;
+      }
+    }
   }
 
   Future<void> _markUploaded() =>
@@ -261,23 +344,56 @@ class CloudBackup {
     _ref.invalidate(cloudAutoUploadProvider);
   }
 
-  /// Uploads with the saved passphrase when automatic upload is on and an
-  /// account is signed in; otherwise does nothing.
-  Future<void> uploadIfAuto() async {
-    if (!cloudAvailable) return;
+  DateTime? _lastAutoSync;
+
+  /// Premium automatic sync with the saved passphrase, at most every
+  /// 2 minutes; does nothing when it is off or nobody is signed in.
+  Future<void> syncIfAuto() async {
+    if (!cloudAvailable || !_ref.read(premiumProvider)) return;
+    final now = DateTime.now();
+    final last = _lastAutoSync;
+    if (last != null && now.difference(last) < const Duration(minutes: 2)) return;
+    _lastAutoSync = now;
     await ensureCloudReady();
     // Firebase restores the signed-in user asynchronously after launch.
     if (await FirebaseAuth.instance.authStateChanges().first == null) return;
     final passphrase = await _autoPassphrase();
-    if (passphrase != null) await upload(passphrase);
+    if (passphrase != null) await sync(passphrase);
   }
 
-  /// Deletes every chunk except [keepVersion]'s, also ones a failed upload left.
-  Future<void> _deleteChunks(String uid, {String? keepVersion}) async {
+  /// "Sync now" with the saved passphrase.
+  Future<void> syncNow() async {
+    final passphrase = await _autoPassphrase();
+    if (passphrase == null) throw StateError('Automatic sync is off');
+    await sync(passphrase);
+  }
+
+  /// Deletes the chunks of versions older than [olderThan] (all when null),
+  /// also ones a failed upload left. Newer ones may belong to another phone's
+  /// upload in progress (versions only grow, see upload).
+  Future<void> _deleteChunks(String uid, {String? olderThan}) async {
+    final limit = olderThan == null ? null : int.parse(olderThan);
     final all = await FirebaseFirestore.instance.collection('backups/$uid/chunks').get();
     for (final d in all.docs) {
-      if (keepVersion == null || !d.id.startsWith('${keepVersion}_')) await d.reference.delete();
+      final v = int.tryParse(d.id.split('_').first) ?? 0;
+      if (limit == null || v < limit) await d.reference.delete();
     }
+  }
+
+  /// The encrypted text of the cloud copy described by [meta].
+  Future<String> _download(String uid, Map<String, dynamic> meta) async {
+    final content = StringBuffer();
+    for (var i = 0; i < (meta['chunks'] as num).toInt(); i++) {
+      final part = (await _chunk(uid, '${meta['version']}', i).get()).data()?['data'];
+      // Missing while another phone replaces the backup: try again later.
+      if (part is! String) throw const BackupException(BackupError.corrupted);
+      content.write(part);
+    }
+    final text = content.toString();
+    if (text.length > BackupCodec.maxBytes * 2 || !isEncryptedBackup(text)) {
+      throw const BackupException(BackupError.notABackup);
+    }
+    return text;
   }
 
   /// When this account's cloud backup was last uploaded; null when none.
@@ -293,17 +409,7 @@ class CloudBackup {
     final uid = _user.uid;
     final meta = (await _meta(uid).get()).data();
     if (meta == null) throw FirebaseException(plugin: 'monchi', code: 'not-found');
-    final content = StringBuffer();
-    for (var i = 0; i < (meta['chunks'] as num).toInt(); i++) {
-      final part = (await _chunk(uid, '${meta['version']}', i).get()).data()?['data'];
-      // Missing while another phone replaces the backup: try again later.
-      if (part is! String) throw const BackupException(BackupError.corrupted);
-      content.write(part);
-    }
-    final text = content.toString();
-    if (text.length > BackupCodec.maxBytes * 2 || !isEncryptedBackup(text)) {
-      throw const BackupException(BackupError.notABackup);
-    }
+    final text = await _download(uid, meta);
     final passphrase = await askPassphrase();
     if (passphrase == null) return false;
     await _ref.read(backupServiceProvider).restoreFromContent(await decryptBackup(text, passphrase));

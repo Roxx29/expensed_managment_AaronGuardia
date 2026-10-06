@@ -76,13 +76,9 @@ GoRouter _buildRouter() => GoRouter(
               GoRoute(path: 'savings', builder: (_, _) => const SavingsScreen()),
               GoRoute(path: 'security', builder: (_, _) => const SecurityScreen()),
               GoRoute(path: 'notifications', builder: (_, _) => const NotificationsScreen()),
-              GoRoute(
-                path: 'import',
-                builder: (context, _) => PremiumGate(
-                  title: context.tr('Import bank statement'),
-                  child: const ImportScreen(),
-                ),
-              ),
+              // The first import is free (switching from another app); the
+              // screen asks for Premium after that.
+              GoRoute(path: 'import', builder: (_, _) => const ImportScreen()),
               GoRoute(
                 path: 'assistant',
                 builder: (context, _) => PremiumGate(title: context.tr('Assistant'), child: const AssistantScreen()),

@@ -2,21 +2,45 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  // Stage 2: import from other apps, projects/clients, accountant export.
+  'Project or client (optional)': 'Proyecto o cliente (opcional)',
+  'Leave it empty for personal spending.': 'Déjalo vacío para gastos personales.',
+  'You already used your free import. More imports are part of Monchi Premium.':
+      'Ya usaste tu importación gratis. Las siguientes importaciones son parte de Monchi Premium.',
+  'Your first import is free, to bring your history from another app or your bank.':
+      'Tu primera importación es gratis, para traer tu historial desde otra app o tu banco.',
+  'Export your statement from your bank, or your data from Monefy, Spendee, Wallet, Money Manager or Excel, as CSV (separated by commas, semicolons or tabs). The first row must contain the column names. Negative amounts, a debit column or a type column saying expense are imported as expenses; the rest as income. Categories are kept, or learned from your earlier transactions. Rows you already imported are skipped.':
+      'Exporta tu estado de cuenta del banco, o tus datos de Monefy, Spendee, Wallet, Money Manager o Excel, como CSV (separado por comas, punto y coma o tabulaciones). La primera fila debe tener los nombres de las columnas. Los montos negativos, una columna de débito o una columna de tipo que diga gasto se importan como gastos; el resto, como ingresos. Las categorías se conservan, o se aprenden de tus movimientos anteriores. Las filas que ya importaste se omiten.',
+  'Optional, for exports from other apps:': 'Opcional, para archivos de otras apps:',
+  'Type (expense / income)': 'Tipo (gasto / ingreso)',
+  'A spreadsheet file with your transactions, for you or your accountant. Choose the period and the project or client. It is not encrypted.':
+      'Una hoja de cálculo con tus movimientos, para ti o tu contador. Elige el periodo y el proyecto o cliente. No está cifrada.',
+  'Period': 'Periodo',
+  'This month': 'Este mes',
+  'Last month': 'Mes pasado',
+  'This year': 'Este año',
+  'Everything': 'Todo',
+  'Project or client': 'Proyecto o cliente',
+  'All': 'Todos',
+  'Personal only (no project)': 'Solo personal (sin proyecto)',
   // Stage 1 after the first-month report: cloud reminder, automatic cloud upload, pricing copy.
   'Protect your data': 'Protege tus datos',
   'If you lose your phone, your records go with it. Save an encrypted copy in the cloud.':
       'Si pierdes el teléfono, tus registros se van con él. Guarda una copia cifrada en la nube.',
   'Later': 'Más tarde',
-  'Upload automatically': 'Subir automáticamente',
-  'Premium. Every automatic backup is also uploaded, encrypted. The passphrase stays on this phone, in secure storage.':
-      'Premium. Cada copia automática también se sube, cifrada. La contraseña se queda en este teléfono, en el almacenamiento seguro.',
+  'Sync automatically': 'Sincronizar automáticamente',
+  'Premium. Turn it on with the same account and passphrase on your other phones, or your partner\'s, to share the same data. It syncs when you open Monchi and the newest change wins. The passphrase stays on this phone, in secure storage.':
+      'Premium. Actívalo con la misma cuenta y contraseña en tus otros teléfonos, o en el de tu pareja, para compartir los mismos datos. Se sincroniza al abrir Monchi y gana el cambio más reciente. La contraseña se queda en este teléfono, en el almacenamiento seguro.',
+  'Sync now': 'Sincronizar ahora',
+  'Synced with the cloud': 'Sincronizado con la nube',
+  'Your data changed while syncing. Try again in a moment.': 'Tus datos cambiaron durante la sincronización. Inténtalo de nuevo en un momento.',
   'Last upload: {date}': 'Última subida: {date}',
   'Replace': 'Reemplazar',
   'Replace your cloud backup?': '¿Reemplazar tu copia en la nube?',
   'The cloud backup from {when} will be replaced with the data on this phone. To bring that backup to this phone, use Restore from the cloud instead.':
       'La copia en la nube del {when} se reemplazará con los datos de este teléfono. Para traer esa copia a este teléfono, usa Restaurar desde la nube.',
-  'Automatic backups, also to the cloud (encrypted), and CSV export':
-      'Copias automáticas, también en la nube (cifradas), y exportar a CSV',
+  'Sync between your phones or with your partner (encrypted)': 'Sincroniza tus teléfonos o con tu pareja (cifrado)',
+  'Automatic backups and CSV export': 'Copias automáticas y exportar a CSV',
   'One payment a year': 'Un solo pago al año',
   'Best value: pay once, no renewals': 'Mejor valor: pagas una vez, sin renovaciones',
   // Premium status and animations (build 20).
@@ -103,7 +127,6 @@ const esStrings = <String, String>{
   '6 digits or more is safer.': '6 dígitos o más es más seguro.',
   'A category': 'Una categoría',
   'A forgotten PIN cannot be recovered. You would have to reinstall the app, which deletes all your data unless you exported a backup.': 'Un PIN olvidado no se puede recuperar. Tendrías que reinstalar la app, lo que borra todos tus datos salvo que hayas exportado una copia de seguridad.',
-  'A spreadsheet file with all your transactions. It is not encrypted.': 'Una hoja de cálculo con todos tus movimientos. No está cifrada.',
   'Active': 'Activo',
   'Active subscriptions: {count}. They cost {monthly} per month ({yearly} per year).': 'Suscripciones activas: {count}. Cuestan {monthly} al mes ({yearly} al año).',
   'Add': 'Agregar',
@@ -266,7 +289,6 @@ const esStrings = <String, String>{
   'Export a backup': 'Exportar copia de seguridad',
   'Export encrypted': 'Exportar cifrada',
   'Export transactions (CSV)': 'Exportar movimientos (CSV)',
-  'Export your statement from your bank as CSV (separated by commas, semicolons or tabs). The first row must contain the column names. Negative amounts or a debit column are imported as expenses; positive amounts or a credit column as income. Rows you already imported are skipped.': 'Exporta tu estado de cuenta desde tu banco como CSV (separado por comas, punto y coma o tabulaciones). La primera fila debe tener los nombres de las columnas. Los montos negativos o una columna de débito se importan como gastos; los positivos o una columna de crédito, como ingresos. Las filas que ya importaste se omiten.',
   'Fingerprint or face. Your PIN always works too.': 'Huella o rostro. Tu PIN siempre funciona también.',
   'First charge — past dates are recorded as expenses (up to one year)': 'Primer cobro: las fechas pasadas se registran como gastos (hasta un año)',
   'For your privacy, notifications never show amounts.': 'Por tu privacidad, las notificaciones nunca muestran montos.',

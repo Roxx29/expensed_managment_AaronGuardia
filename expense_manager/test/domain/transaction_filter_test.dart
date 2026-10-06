@@ -31,6 +31,7 @@ void main() {
       occurredAt: DateTime(2026, 8, 20),
       notes: 'With friends',
       categoryId: 'cat_entertainment',
+      project: 'Studio Luna',
     ),
   ];
 
@@ -78,5 +79,9 @@ void main() {
     expect(f.copyWith(clearCategory: true).categoryId, isNull);
     expect(f.copyWith(clearAmounts: true).minAmount, isNull);
     expect(f.copyWith(query: 'a').categoryId, 'x');
+  });
+
+  test('search matches the project / client', () {
+    expect(ids(const TransactionFilter(query: 'luna')), ['cinema']);
   });
 }

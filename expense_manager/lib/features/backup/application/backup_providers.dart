@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' show Rect;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -59,18 +60,26 @@ final autoBackupProvider = FutureProvider<bool>((ref) async {
     // Best effort (e.g. disk full): retried on next launch, never blocks the app.
     return false;
   }
-  try {
-    // Also when an earlier upload failed (offline): retried on every launch
-    // until the cloud copy is as recent as the schedule asks.
-    final lastUpload = DateTime.tryParse(await ref.read(settingsRepositoryProvider).read(lastCloudUploadKey) ?? '');
-    if (done || BackupPolicy.isDue(frequency, lastUpload, ref.read(clockProvider)())) {
-      await ref.read(cloudBackupProvider).uploadIfAuto();
-    }
-  } on Object {
-    // Offline or a cloud error: tried again on the next launch.
-  }
+  await _syncQuietly(ref.read(cloudBackupProvider));
   return done;
 });
+
+/// Premium automatic sync also when the app comes back to the foreground
+/// (another phone may have added expenses meanwhile).
+final cloudSyncOnResumeProvider = Provider<void>((ref) {
+  if (!cloudAvailable) return;
+  final listener = AppLifecycleListener(onResume: () => _syncQuietly(ref.read(cloudBackupProvider)));
+  ref.onDispose(listener.dispose);
+});
+
+Future<void> _syncQuietly(CloudBackup cloud) async {
+  try {
+    await cloud.syncIfAuto();
+  } on Object {
+    // Offline, another phone busy or a wrong saved passphrase: tried again on
+    // the next launch/resume; "Sync now" shows the reason.
+  }
+}
 
 final backupActionsProvider = Provider<BackupActions>(BackupActions.new);
 
@@ -104,14 +113,22 @@ class BackupActions {
     await _share(file.path, 'application/json', origin);
   }
 
-  /// Shares all transactions as a CSV spreadsheet (UTF-8 with BOM so Excel
-  /// detects the encoding). Names are resolved by the caller in the UI language.
+  /// Shares transactions of [period] (and [project], see selectForExport) as
+  /// a CSV spreadsheet (UTF-8 with BOM so Excel detects the encoding), e.g.
+  /// for an accountant. Names are resolved by the caller in the UI language.
   Future<void> exportTransactionsCsv({
     required String Function(String? categoryId) categoryName,
     String Function(String? id)? paymentMethodName,
+    ExportPeriod period = ExportPeriod.all,
+    String? project,
     Rect? origin,
   }) async {
-    final transactions = await _ref.read(transactionRepositoryProvider).watchAll().first;
+    final transactions = selectForExport(
+      await _ref.read(transactionRepositoryProvider).watchAll().first,
+      period,
+      project,
+      _ref.read(clockProvider)(),
+    );
     final csv = transactionsToCsv(transactions, categoryName: categoryName, paymentMethodName: paymentMethodName);
     final stamp = DateFormat('yyyyMMdd', 'en_US').format(_ref.read(clockProvider)());
     final file = await _exportFile('transactions_$stamp.csv');

@@ -117,4 +117,45 @@ void main() {
       expect(r.transactions.single.description, hasLength(200));
     });
   });
+
+  group('other expense apps', () {
+    test('guesses Monefy, Spendee, Wallet and Money Manager headers', () {
+      final monefy = ColumnMapping.guess(
+          ['date', 'account', 'category', 'amount', 'currency', 'converted amount', 'currency', 'description']);
+      expect([monefy.date, monefy.category, monefy.amount, monefy.description, monefy.type], [0, 2, 3, 7, null]);
+
+      final spendee = ColumnMapping.guess(
+          ['Date', 'Wallet', 'Type', 'Category name', 'Amount', 'Currency', 'Note', 'Labels', 'Author']);
+      expect([spendee.date, spendee.type, spendee.category, spendee.amount, spendee.description], [0, 2, 3, 4, 6]);
+
+      final wallet = ColumnMapping.guess(['account', 'category', 'currency', 'amount', 'ref_currency_amount', 'type',
+          'payment_type', 'payment_type_local', 'note', 'date', 'labels', 'custom_category']);
+      expect([wallet.date, wallet.type, wallet.category, wallet.amount, wallet.description], [9, 5, 1, 3, 8]);
+
+      final moneyManager = ColumnMapping.guess(
+          ['Period', 'Accounts', 'Category', 'Subcategory', 'Note', 'Amount', 'Income/Expense', 'Description']);
+      expect([moneyManager.date, moneyManager.category, moneyManager.amount, moneyManager.type], [0, 2, 5, 6]);
+      expect(moneyManager.description, 7);
+    });
+
+    test('a Type column sets the direction of positive amounts and skips transfers', () {
+      const mapping = ColumnMapping(date: 0, description: 1, amount: 2, type: 3, category: 4);
+      final r = mapStatement([
+        ['2026-09-01', 'Lunch', '12.00', 'Exp.', 'Food'],
+        ['2026-09-02', 'Pay', '900', 'Income', 'Salary'],
+        ['2026-09-03', 'Bus', '-2', 'Gasto', ''],
+        ['2026-09-04', 'Savings', '50', 'Transfer-Out', ''],
+        ['2026-09-05', 'Odd', '-7', '???', ''],
+      ], mapping, StatementDateFormat.ymd, usd);
+      expect(r.skipped, 1);
+      expect(r.transactions.map((t) => t.type), [
+        TransactionType.expense,
+        TransactionType.income,
+        TransactionType.expense,
+        TransactionType.expense, // unknown type text: the sign decides
+      ]);
+      expect(r.transactions.every((t) => t.amount.isPositive), isTrue);
+      expect(r.transactions.map((t) => t.categoryName), ['Food', 'Salary', '', '']);
+    });
+  });
 }

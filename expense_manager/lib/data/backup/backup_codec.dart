@@ -20,7 +20,7 @@ class BackupException implements Exception {
 
 /// A backup that passed validation, parsed into typed rows ready to insert.
 class ValidatedBackup {
-  const ValidatedBackup._({
+  const ValidatedBackup({
     required this.createdAt,
     required this.profiles,
     required this.categories,
@@ -115,8 +115,9 @@ class BackupCodec {
     }
     final version = root['schemaVersion'];
     if (version is! int) throw const BackupException(BackupError.notABackup);
-    // ponytail: older schema versions are accepted as-is while only v1 exists;
-    // add JSON migrations here when the schema changes.
+    // v1 backups have no `project`; the nullable column reads as null, so they
+    // restore as-is. ponytail: add JSON migrations here when a change is not
+    // just a new nullable column.
     if (version > AppDatabase.currentSchemaVersion) {
       throw const BackupException(BackupError.newerVersion);
     }
@@ -132,7 +133,7 @@ class BackupCodec {
     try {
       List<T> rows<T>(String table, T Function(Map<String, dynamic>) fromJson) =>
           [for (final row in data[table]! as List<Object?>) fromJson(row! as Map<String, dynamic>)];
-      backup = ValidatedBackup._(
+      backup = ValidatedBackup(
         createdAt: DateTime.parse(root['createdAt']! as String).toLocal(),
         profiles: rows('profiles', ProfileRecord.fromJson),
         categories: rows('categories', CategoryRecord.fromJson),
@@ -162,14 +163,48 @@ class BackupCodec {
           _validMonth(x.startMonth) &&
           (x.endMonth == null || (_validMonth(x.endMonth!) && x.endMonth! >= x.startMonth))) &&
       b.transactions.every((t) =>
-          t.description.length <= 200 && (t.notes?.length ?? 0) <= 1000 && (t.source?.length ?? 0) <= 200) &&
+          t.description.length <= 200 &&
+          (t.notes?.length ?? 0) <= 1000 &&
+          (t.source?.length ?? 0) <= 200 &&
+          (t.project == null || (t.project!.isNotEmpty && t.project!.trim() == t.project && t.project!.length <= 60))) &&
       b.recurringItems.every((r) => r.interval <= 366 && (r.notes?.length ?? 0) <= 1000) &&
       b.settings.every((s) => s.key.length <= 100 && s.value.length <= 10000);
 
+  /// Tables merged by sync (all have id/updatedAt/deletedAt).
+  static const _syncedTables = [
+    'profiles',
+    'categories',
+    'payment_methods',
+    'recurring_items',
+    'savings_goals',
+    'transactions',
+    'budgets',
+  ];
+
+  /// Changes whenever a synced row is added or edited: row count, newest and
+  /// sum of `updated_at` per table (whole seconds: two edits of one row in
+  /// the same second look alike, harmless for sync).
+  Future<String> fingerprint() async {
+    final rows = await _db
+        .customSelect(_syncedTables
+            .map((t) => "SELECT '$t' AS t, COUNT(*) AS c, MAX(updated_at) AS m, SUM(updated_at) AS s FROM $t")
+            .join(' UNION ALL '))
+        .get();
+    return rows.map((r) => '${r.data['t']}:${r.data['c']}:${r.data['m']}:${r.data['s']}').join('|');
+  }
+
   /// Replaces all user data with [backup] — all or nothing.
-  Future<void> restore(ValidatedBackup backup) async {
+  /// A user restore ([keepSettings] false) also marks every row as changed
+  /// now, so the restored data wins the next sync on every phone.
+  /// [keepSettings]: leave this phone's app settings untouched (sync).
+  /// [expectFingerprint]: abort with [LocalDataChanged] when the data changed
+  /// since that [fingerprint] (an edit made while a sync was downloading).
+  Future<void> restore(ValidatedBackup backup, {bool keepSettings = false, String? expectFingerprint}) async {
     try {
       await _db.transaction(() async {
+        if (expectFingerprint != null && await fingerprint() != expectFingerprint) {
+          throw const LocalDataChanged();
+        }
         await _db.customStatement('PRAGMA defer_foreign_keys = ON');
         // Children before parents.
         await _db.delete(_db.transactions).go();
@@ -180,7 +215,9 @@ class BackupCodec {
         await _db.delete(_db.paymentMethods).go();
         await _db.delete(_db.profiles).go();
         // Security settings (PIN/lock) are device-local: never replaced.
-        await (_db.delete(_db.appSettings)..where((s) => s.key.like('$securityKeyPrefix%').not())).go();
+        if (!keepSettings) {
+          await (_db.delete(_db.appSettings)..where((s) => s.key.like('$securityKeyPrefix%').not())).go();
+        }
         await _db.batch((b) {
           b.insertAll(_db.profiles, backup.profiles);
           b.insertAll(_db.categories, backup.categories);
@@ -189,14 +226,21 @@ class BackupCodec {
           b.insertAll(_db.savingsGoals, backup.savingsGoals);
           b.insertAll(_db.transactions, backup.transactions);
           b.insertAll(_db.budgets, backup.budgets);
-          b.insertAll(_db.appSettings, backup.settings);
+          if (!keepSettings) b.insertAll(_db.appSettings, backup.settings);
         });
+        if (!keepSettings) {
+          for (final t in _syncedTables) {
+            await _db.customStatement("UPDATE $t SET updated_at = CAST(strftime('%s', 'now') AS INTEGER)");
+          }
+        }
         // Checked here (not at COMMIT) so a broken reference rolls back reliably.
         if ((await _db.customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {
           throw const BackupException(BackupError.invalidData);
         }
       });
     } on BackupException {
+      rethrow;
+    } on LocalDataChanged {
       rethrow;
     } on Object {
       // Constraint violations (e.g. negative amounts, broken references).
@@ -205,3 +249,71 @@ class BackupCodec {
   }
 }
 
+
+/// The local data changed while a sync was running; nothing was replaced.
+class LocalDataChanged implements Exception {
+  const LocalDataChanged();
+}
+
+class MergeResult {
+  const MergeResult(this.merged, {required this.localChanged, required this.remoteChanged});
+
+  final ValidatedBackup merged;
+
+  /// Some row came from [remote]: this phone must apply [merged].
+  final bool localChanged;
+
+  /// Some row came from [local]: the cloud copy must be replaced by [merged].
+  final bool remoteChanged;
+}
+
+/// Sync merge: per table and row id, the row with the newer `updatedAt`
+/// wins (soft deletions included); a tie is broken by the row's JSON, so
+/// every phone picks the same row. App settings and the profile (name,
+/// currency, photo path) stay [local]'s: they belong to the phone/person.
+MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote) {
+  var localChanged = false;
+  var remoteChanged = false;
+  List<T> merge<T extends DataClass>(
+    List<T> mine,
+    List<T> theirs,
+    String Function(T) id,
+    DateTime Function(T) updatedAt,
+  ) {
+    final byId = {for (final r in mine) id(r): r};
+    final seen = <String>{};
+    for (final r in theirs) {
+      final key = id(r);
+      seen.add(key);
+      final current = byId[key];
+      if (current == null) {
+        byId[key] = r;
+        localChanged = true;
+        continue;
+      }
+      var order = updatedAt(r).compareTo(updatedAt(current));
+      if (order == 0 && current != r) order = jsonEncode(r.toJson()).compareTo(jsonEncode(current.toJson()));
+      if (order > 0) {
+        byId[key] = r;
+        localChanged = true;
+      } else if (order < 0) {
+        remoteChanged = true;
+      }
+    }
+    if (byId.length > seen.length) remoteChanged = true; // rows only on this phone
+    return byId.values.toList();
+  }
+
+  final merged = ValidatedBackup(
+    createdAt: local.createdAt,
+    profiles: local.profiles,
+    categories: merge(local.categories, remote.categories, (r) => r.id, (r) => r.updatedAt),
+    paymentMethods: merge(local.paymentMethods, remote.paymentMethods, (r) => r.id, (r) => r.updatedAt),
+    recurringItems: merge(local.recurringItems, remote.recurringItems, (r) => r.id, (r) => r.updatedAt),
+    savingsGoals: merge(local.savingsGoals, remote.savingsGoals, (r) => r.id, (r) => r.updatedAt),
+    transactions: merge(local.transactions, remote.transactions, (r) => r.id, (r) => r.updatedAt),
+    budgets: merge(local.budgets, remote.budgets, (r) => r.id, (r) => r.updatedAt),
+    settings: local.settings,
+  );
+  return MergeResult(merged, localChanged: localChanged, remoteChanged: remoteChanged);
+}

@@ -94,6 +94,7 @@ class DriftTransactionRepository implements TransactionRepository {
             savingsGoalId: Value(tx.savingsGoalId),
             source: Value(tx.source),
             notes: Value(tx.notes),
+            project: Value(tx.project?.trim().isEmpty ?? true ? null : tx.project!.trim()),
             updatedAt: Value(DateTime.now()),
             deletedAt: const Value(null),
           );
@@ -109,6 +110,9 @@ class DriftTransactionRepository implements TransactionRepository {
   static const _maxDescriptionLength = 200;
   static const _maxNotesLength = 1000;
 
+  /// Also checked in backup_codec.dart and the transaction form.
+  static const maxProjectLength = 60;
+
   void _validate(FinanceTransaction tx) {
     // Messages never include user content (it may reach crash reports later).
     if (tx.id.isEmpty) throw ArgumentError('must not be empty', 'id');
@@ -120,6 +124,7 @@ class DriftTransactionRepository implements TransactionRepository {
     }
     if ((tx.notes?.length ?? 0) > _maxNotesLength) throw ArgumentError('too long', 'notes');
     if ((tx.source?.length ?? 0) > _maxDescriptionLength) throw ArgumentError('too long', 'source');
+    if ((tx.project?.length ?? 0) > maxProjectLength) throw ArgumentError('too long', 'project');
   }
 
   static FinanceTransaction _toEntity(TransactionRecord r) => FinanceTransaction(
@@ -134,5 +139,6 @@ class DriftTransactionRepository implements TransactionRepository {
         savingsGoalId: r.savingsGoalId,
         source: r.source,
         notes: r.notes,
+        project: r.project,
       );
 }

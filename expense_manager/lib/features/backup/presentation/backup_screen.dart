@@ -12,6 +12,7 @@ import '../../../data/backup/backup_codec.dart';
 import '../../../data/backup/backup_crypto.dart';
 import '../../../data/database/app_database.dart';
 import '../../../domain/backup/backup_policy.dart';
+import '../../../domain/export/csv_export.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../premium/presentation/paywall_screen.dart';
@@ -28,6 +29,8 @@ String backupErrorMessage(BuildContext context, Object error) => switch (error) 
         context.tr('The backup contains invalid data. Nothing was changed.'),
       BackupException(error: BackupError.wrongPassphrase) =>
         context.tr('Wrong passphrase, or the file is damaged. Nothing was changed.'),
+      CloudChanged() || LocalDataChanged() =>
+        context.tr('Your data changed while syncing. Try again in a moment.'),
       FirebaseException(code: 'requires-recent-login') =>
         context.tr('For your security, sign out, sign in again and repeat.'),
       FirebaseException(code: 'not-found') => context.tr('There is no backup in the cloud yet.'),
@@ -132,7 +135,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         false;
   }
 
-  /// Premium: also upload every automatic backup (asks the passphrase once).
+  /// Premium: keep this phone and the cloud copy merged (asks the passphrase
+  /// once; with a cloud copy already there it must be that copy's one).
   void _setAutoUpload(bool on) {
     final cloud = ref.read(cloudBackupProvider);
     if (!on) {
@@ -143,19 +147,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       return;
     }
     if (!requirePremium(context, ref)) return;
-    // Read now: the screen may be gone after the awaits.
-    final actions = ref.read(backupActionsProvider);
-    final scheduleOff = (ref.read(backupFrequencyProvider).value ?? BackupFrequency.off) == BackupFrequency.off;
-    final uploadedText = context.tr('Backup saved in the cloud');
+    // Resolved now: the screen may be gone after the awaits.
+    final syncedText = context.tr('Synced with the cloud');
     _run(() async {
-      if (!await _confirmReplaceCloud(cloud)) return null;
-      final passphrase = await _askPassphrase(confirm: true);
+      final passphrase = await _askPassphrase(confirm: await cloud.backupDate() == null);
       if (passphrase == null) return null;
-      // Upload first: the passphrase is only kept once an upload worked.
-      await cloud.upload(passphrase);
+      // Merge first (no copy is replaced): the passphrase is only kept once it worked.
+      await cloud.sync(passphrase);
       await cloud.enableAutoUpload(passphrase);
-      if (scheduleOff) await actions.setFrequency(BackupFrequency.weekly);
-      return uploadedText;
+      return syncedText;
     });
   }
 
@@ -239,13 +239,30 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               contentPadding: EdgeInsets.zero,
               value: autoUpload,
               onChanged: _busy ? null : _setAutoUpload,
-              title: Text(context.tr('Upload automatically')),
+              title: Text(context.tr('Sync automatically')),
               subtitle: Text(
                 context.tr(
-                  'Premium. Every automatic backup is also uploaded, encrypted. The passphrase stays on this phone, in secure storage.',
+                  'Premium. Turn it on with the same account and passphrase on your other phones, or your partner\'s, to share the same data. It syncs when you open Monchi and the newest change wins. The passphrase stays on this phone, in secure storage.',
                 ),
               ),
             ),
+            if (autoUpload)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          final syncedText = context.tr('Synced with the cloud');
+                          _run(() async {
+                            await cloud.syncNow();
+                            return syncedText;
+                          });
+                        },
+                  icon: const Icon(Icons.sync_rounded),
+                  label: Text(context.tr('Sync now')),
+                ),
+              ),
             const SizedBox(height: 4),
             Wrap(
               spacing: 4,
@@ -441,22 +458,31 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      context.tr('A spreadsheet file with all your transactions. It is not encrypted.'),
+                      context.tr(
+                        'A spreadsheet file with your transactions, for you or your accountant. Choose the period and the project or client. It is not encrypted.',
+                      ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _busy
                           ? null
-                          : () {
+                          : () async {
                               if (!requirePremium(context, ref)) return;
                               // Labels resolved now, in the current UI language (no context after awaits).
                               final categories = {for (final c in categoryById.values) c.id: c.label(context)};
                               final methods = {for (final m in paymentMethodById.values) m.id: m.label(context)};
+                              final choice = await showDialog<(ExportPeriod, String?)>(
+                                context: context,
+                                builder: (_) => _ExportDialog(projects: ref.read(projectsProvider)),
+                              );
+                              if (choice == null || !mounted) return;
                               _run(() async {
                                 await actions.exportTransactionsCsv(
                                   categoryName: (id) => categories[id] ?? '',
                                   paymentMethodName: (id) => methods[id] ?? '',
+                                  period: choice.$1,
+                                  project: choice.$2,
                                   origin: _shareOrigin(),
                                 );
                                 return null;
@@ -479,6 +505,66 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Period and project of the CSV export. Pops `(period, project)`;
+/// project null = all, '' = personal only.
+class _ExportDialog extends StatefulWidget {
+  const _ExportDialog({required this.projects});
+
+  final List<String> projects;
+
+  @override
+  State<_ExportDialog> createState() => _ExportDialogState();
+}
+
+class _ExportDialogState extends State<_ExportDialog> {
+  ExportPeriod _period = ExportPeriod.lastMonth;
+  String? _project;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.tr('Export transactions (CSV)')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<ExportPeriod>(
+            initialValue: _period,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: context.tr('Period')),
+            items: [
+              DropdownMenuItem(value: ExportPeriod.thisMonth, child: Text(context.tr('This month'))),
+              DropdownMenuItem(value: ExportPeriod.lastMonth, child: Text(context.tr('Last month'))),
+              DropdownMenuItem(value: ExportPeriod.thisYear, child: Text(context.tr('This year'))),
+              DropdownMenuItem(value: ExportPeriod.all, child: Text(context.tr('Everything'))),
+            ],
+            onChanged: (p) => setState(() => _period = p ?? _period),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String?>(
+            initialValue: _project,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: context.tr('Project or client')),
+            items: [
+              DropdownMenuItem(value: null, child: Text(context.tr('All'))),
+              DropdownMenuItem(value: '', child: Text(context.tr('Personal only (no project)'))),
+              for (final p in widget.projects)
+                DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis)),
+            ],
+            onChanged: (p) => setState(() => _project = p),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, (_period, _project)),
+          child: Text(context.tr('Export')),
+        ),
+      ],
     );
   }
 }

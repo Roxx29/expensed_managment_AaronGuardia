@@ -19,15 +19,18 @@ LO QUE PUEDES HACER GRATIS
 • Recordatorios de pago
 • Bloqueo con PIN o huella
 • Copia de seguridad y restauración manual
+• Trae tu historial desde Monefy, Spendee, Wallet, Money Manager, Excel o tu banco (la primera importación es gratis)
+• Separa gastos personales y de clientes o proyectos
 • Copia en la nube cifrada: si cambias o pierdes el teléfono, recuperas todo
 • Modo claro y oscuro, en español e inglés
 
 MONCHI PREMIUM
+• Sincroniza tus teléfonos o comparte el presupuesto con tu pareja, siempre cifrado
 • Presupuestos por categoría, metas de ahorro, suscripciones y categorías sin límite
 • Estadísticas completas: resumen del año, por categoría e historial
-• Escanea recibos y importa estados de cuenta del banco (CSV)
+• Escanea recibos e importa estados de cuenta cuando quieras, con categorías que aprende de ti
 • Asistente de finanzas
-• Copias automáticas, también en la nube, y exportación CSV
+• Copias automáticas, también en la nube, y exportación CSV por periodo y cliente para tu contador
 Pago único de por vida (el mejor valor: sin renovaciones), o planes mensual y anual con 7 días de prueba gratis. Puedes ver tu plan, la fecha de renovación o de vencimiento dentro de la app y cancelar cuando quieras en Google Play.
 
 TU PRIVACIDAD

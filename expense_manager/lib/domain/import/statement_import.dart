@@ -64,53 +64,90 @@ DateTime? validDate(int year, int month, int day) {
   return date.month == month && date.day == day ? date : null;
 }
 
-/// Column indexes (0-based) of a statement. Either [amount] (signed:
-/// negative = expense) or [debit]/[credit] must be set; [amount] wins when
-/// both are.
+/// Lowercase without accents, for comparing names typed in other apps.
+String foldText(String s) {
+  const from = 'áéíóúüñàèìòùâêîôûäëïöç';
+  const to = 'aeiouunaeiouaeiouaeioc';
+  final out = StringBuffer();
+  for (final ch in s.trim().toLowerCase().split('')) {
+    final i = from.indexOf(ch);
+    out.write(i < 0 ? ch : to[i]);
+  }
+  return out.toString();
+}
+
+/// Column indexes (0-based) of a statement or another app's export. Either
+/// [amount] (signed: negative = expense) or [debit]/[credit] must be set;
+/// [amount] wins when both are. An optional [type] column ("Expense",
+/// "Ingreso"…) decides the direction when its text is recognised, so apps
+/// that export positive amounts work too. [category] holds category names.
 class ColumnMapping {
-  const ColumnMapping({this.date, this.description, this.amount, this.debit, this.credit});
+  const ColumnMapping({this.date, this.description, this.amount, this.debit, this.credit, this.type, this.category});
 
   final int? date;
   final int? description;
   final int? amount;
   final int? debit;
   final int? credit;
+  final int? type;
+  final int? category;
 
   bool get isComplete => date != null && (amount != null || debit != null || credit != null);
 
-  /// Guesses columns from header names (English and Spanish).
+  /// Guesses columns from header names (English and Spanish), including the
+  /// exports of Monefy, Spendee, Wallet and Money Manager.
   factory ColumnMapping.guess(List<String> header) {
-    int? date, description, amount, debit, credit;
+    int? date, description, amount, debit, credit, type, category, note;
     for (var i = 0; i < header.length; i++) {
-      final h = _normalize(header[i]);
+      final h = foldText(header[i]);
       bool has(List<String> words) => words.any(h.contains);
-      if (date == null && has(const ['fecha', 'date'])) {
+      if (date == null && has(const ['fecha', 'date', 'period'])) {
         date = i;
+      } else if (type == null &&
+          (has(const ['type', 'tipo']) || (h.contains('income') && h.contains('expense'))) &&
+          !has(const ['payment', 'pago', 'currency', 'moneda', 'cambio'])) {
+        type = i;
       } else if (debit == null && has(const ['debito', 'cargo', 'debit', 'retiro', 'withdrawal'])) {
         debit = i;
       } else if (credit == null && has(const ['credito', 'abono', 'credit', 'deposito', 'deposit'])) {
         credit = i;
       } else if (amount == null && has(const ['monto', 'importe', 'amount'])) {
         amount = i;
+      } else if (category == null && has(const ['categor'])) {
+        category = i;
       } else if (description == null &&
           has(const ['descripcion', 'description', 'concepto', 'detalle', 'details', 'memo', 'payee'])) {
         description = i;
+      } else if (note == null && has(const ['note', 'nota'])) {
+        note = i;
       }
     }
-    return ColumnMapping(date: date, description: description, amount: amount, debit: debit, credit: credit);
+    return ColumnMapping(
+      date: date,
+      description: description ?? note,
+      amount: amount,
+      debit: debit,
+      credit: credit,
+      type: type,
+      category: category,
+    );
   }
+}
 
-  static String _normalize(String s) {
-    const from = 'áéíóúüñ';
-    const to = 'aeiouun';
-    final lower = s.trim().toLowerCase();
-    final out = StringBuffer();
-    for (final ch in lower.split('')) {
-      final i = from.indexOf(ch);
-      out.write(i < 0 ? ch : to[i]);
-    }
-    return out.toString();
+enum _RowKind { expense, income, transfer }
+
+/// Reads a type cell ("Expense", "Exp.", "Gasto", "Income", "Transfer-Out"…).
+/// Null when the text is not recognised (then the amount's sign decides).
+_RowKind? _rowKind(String text) {
+  final t = foldText(text);
+  if (t.isEmpty) return null;
+  if (t.contains('transf')) return _RowKind.transfer;
+  bool starts(List<String> words) => words.any(t.startsWith);
+  if (starts(const ['exp', 'gast', 'egres', 'debit', 'cargo', 'salida', 'out', 'withdraw', 'retiro', '-'])) {
+    return _RowKind.expense;
   }
+  if (starts(const ['inc', 'ingres', 'credit', 'abono', 'entrada', 'deposit', '+'])) return _RowKind.income;
+  return null;
 }
 
 class ImportedTransaction {
@@ -120,6 +157,7 @@ class ImportedTransaction {
     required this.description,
     required this.amount,
     required this.type,
+    this.categoryName = '',
   });
 
   /// Deterministic, so importing the same file twice adds nothing.
@@ -133,8 +171,17 @@ class ImportedTransaction {
   /// [TransactionType.expense] or [TransactionType.income].
   final TransactionType type;
 
-  FinanceTransaction toTransaction() =>
-      FinanceTransaction(id: id, type: type, amount: amount, occurredAt: date, description: description);
+  /// Category name from the file ('' when none), see category_memory.dart.
+  final String categoryName;
+
+  FinanceTransaction toTransaction({String? categoryId}) => FinanceTransaction(
+        id: id,
+        type: type,
+        amount: amount,
+        occurredAt: date,
+        description: description,
+        categoryId: categoryId,
+      );
 }
 
 class StatementImportResult {
@@ -142,11 +189,14 @@ class StatementImportResult {
 
   final List<ImportedTransaction> transactions;
 
-  /// Rows without a valid date or a non-zero amount.
+  /// Rows without a valid date or a non-zero amount, and transfers.
   final int skipped;
 }
 
 const _maxDescriptionLength = 200;
+const _maxCategoryNameLength = 40;
+
+String _cap(String s, int max) => s.length > max ? s.substring(0, max).trim() : s;
 
 /// Maps data [rows] (header excluded) with [mapping] and [format].
 StatementImportResult mapStatement(
@@ -162,11 +212,13 @@ StatementImportResult mapStatement(
 
   for (final row in rows) {
     final date = mapping.date == null ? null : format.parse(cell(row, mapping.date));
-    final signed = _signedAmount(row, mapping, currency, cell);
-    if (date == null || signed == null || signed.isZero || !signed.isWithinLimits) {
+    var signed = _signedAmount(row, mapping, currency, cell);
+    final kind = mapping.type == null ? null : _rowKind(cell(row, mapping.type));
+    if (date == null || signed == null || signed.isZero || !signed.isWithinLimits || kind == _RowKind.transfer) {
       skipped++;
       continue;
     }
+    if (kind != null) signed = kind == _RowKind.expense ? -signed.abs() : signed.abs();
     var description = cell(row, mapping.description).replaceAll(RegExp(r'\s+'), ' ');
     if (description.length > _maxDescriptionLength) {
       description = description.substring(0, _maxDescriptionLength).trim();
@@ -180,6 +232,11 @@ StatementImportResult mapStatement(
       description: description,
       amount: signed.abs(),
       type: signed.isNegative ? TransactionType.expense : TransactionType.income,
+      // Control/format characters (newlines, bidi marks) never reach a name.
+      categoryName: _cap(
+        cell(row, mapping.category).replaceAll(RegExp(r'[\p{Cc}\p{Cf}]', unicode: true), ' ').replaceAll(RegExp(r'\s+'), ' ').trim(),
+        _maxCategoryNameLength,
+      ),
     ));
   }
   return StatementImportResult(result, skipped);

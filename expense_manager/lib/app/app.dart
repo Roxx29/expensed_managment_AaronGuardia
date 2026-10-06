@@ -23,6 +23,8 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(autoPostRecurringProvider);
     // Automatic backup when the schedule says it is due.
     ref.watch(autoBackupProvider);
+    // Premium sync when the app returns to the foreground (stage 3).
+    ref.watch(cloudSyncOnResumeProvider);
     // Keeps payment reminders and budget alerts in sync (no-op when off).
     ref.watch(notificationSyncProvider);
     // Listens for Google Play purchases from launch (none would be missed).

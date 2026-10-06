@@ -71,6 +71,7 @@ class FinanceTransaction {
     this.savingsGoalId,
     this.source,
     this.notes,
+    this.project,
   });
 
   final String id;
@@ -90,6 +91,9 @@ class FinanceTransaction {
   /// Income source (e.g. "Salary").
   final String? source;
   final String? notes;
+
+  /// Project or client (freelancers); null = personal.
+  final String? project;
 }
 
 /// A monthly budget. `categoryId == null` is the global budget.

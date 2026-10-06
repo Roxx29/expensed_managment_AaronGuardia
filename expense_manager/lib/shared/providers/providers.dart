@@ -106,3 +106,13 @@ final clockProvider = Provider<Clock>((ref) => systemClock);
 final allTransactionsProvider = StreamProvider<List<FinanceTransaction>>(
   (ref) => ref.watch(transactionRepositoryProvider).watchAll(),
 );
+
+/// Projects / clients used so far, A–Z (form suggestions, export filter).
+final projectsProvider = Provider<List<String>>((ref) {
+  final all = ref.watch(allTransactionsProvider).value ?? const <FinanceTransaction>[];
+  return {
+    for (final t in all)
+      if (t.project?.trim() case final p? when p.isNotEmpty) p,
+  }.toList()
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+});
