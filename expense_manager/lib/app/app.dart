@@ -10,6 +10,7 @@ import '../features/premium/application/premium_providers.dart';
 import '../features/recurring/application/recurring_providers.dart';
 import '../features/security/presentation/app_lock_gate.dart';
 import '../features/settings/application/settings_providers.dart';
+import '../shared/widgets/monchi_background.dart';
 import 'router.dart';
 
 class ExpenseManagerApp extends ConsumerWidget {
@@ -26,6 +27,7 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(notificationSyncProvider);
     // Listens for Google Play purchases from launch (none would be missed).
     ref.listen(playPremiumProvider, (_, _) {});
+    final premium = ref.watch(premiumProvider);
     return MaterialApp.router(
       title: 'Monchi',
       debugShowCheckedModeBanner: false,
@@ -39,7 +41,11 @@ class ExpenseManagerApp extends ConsumerWidget {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: ref.watch(routerProvider),
       // Above the router: no screen or deep link renders before unlock.
-      builder: (context, child) => AppLockGate(child: child!),
+      // The brand background sits behind every screen (scaffolds are transparent).
+      builder: (context, child) => MonchiBackground(
+        isPremium: premium,
+        child: AppLockGate(child: child!),
+      ),
     );
   }
 }

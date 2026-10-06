@@ -22,6 +22,7 @@ import '../features/settings/presentation/settings_screen.dart';
 import '../features/statistics/presentation/statistics_screen.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
+import '../shared/widgets/motion.dart';
 import 'adaptive_shell.dart';
 import 'more_screen.dart';
 import 'routes.dart';
@@ -33,6 +34,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+/// Full-screen forms, the paywall and welcome open as modals (fade + scale,
+/// MonchiPageTransitionsBuilder in motion.dart).
+Page<void> _modal(GoRouterState state, Widget child) =>
+    MaterialPage(key: state.pageKey, name: modalPageName, child: child);
 
 GoRouter _buildRouter() => GoRouter(
   initialLocation: Routes.dashboard,
@@ -86,30 +92,36 @@ GoRouter _buildRouter() => GoRouter(
         ]),
       ],
     ),
-    GoRoute(path: Routes.premium, builder: (_, _) => const PaywallScreen()),
-    GoRoute(path: Routes.welcome, builder: (_, _) => const WelcomeScreen()),
+    GoRoute(path: Routes.premium, pageBuilder: (_, state) => _modal(state, const PaywallScreen())),
+    GoRoute(path: Routes.welcome, pageBuilder: (_, state) => _modal(state, const WelcomeScreen())),
     // `new` is matched before `:id` because routes are checked in order.
     GoRoute(
       path: Routes.newTransaction,
-      builder: (_, state) => TransactionFormScreen(
-        initialType: TransactionType.values.asNameMap()[state.uri.queryParameters['type']] ??
-            TransactionType.expense,
-        draft: state.extra is TransactionDraft ? state.extra! as TransactionDraft : null,
+      pageBuilder: (_, state) => _modal(
+        state,
+        TransactionFormScreen(
+          initialType: TransactionType.values.asNameMap()[state.uri.queryParameters['type']] ??
+              TransactionType.expense,
+          draft: state.extra is TransactionDraft ? state.extra! as TransactionDraft : null,
+        ),
       ),
     ),
     GoRoute(
       path: '/transaction/:id',
-      builder: (_, state) => TransactionFormScreen(transactionId: state.pathParameters['id']),
+      pageBuilder: (_, state) => _modal(state, TransactionFormScreen(transactionId: state.pathParameters['id'])),
     ),
     GoRoute(
       path: Routes.newRecurring,
-      builder: (_, state) => RecurringFormScreen(
-        kind: RecurringKind.values.asNameMap()[state.uri.queryParameters['kind']] ?? RecurringKind.bill,
+      pageBuilder: (_, state) => _modal(
+        state,
+        RecurringFormScreen(
+          kind: RecurringKind.values.asNameMap()[state.uri.queryParameters['kind']] ?? RecurringKind.bill,
+        ),
       ),
     ),
     GoRoute(
       path: '/recurring/:id',
-      builder: (_, state) => RecurringFormScreen(itemId: state.pathParameters['id']),
+      pageBuilder: (_, state) => _modal(state, RecurringFormScreen(itemId: state.pathParameters['id'])),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

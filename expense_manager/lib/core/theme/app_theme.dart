@@ -1,5 +1,6 @@
-import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+
+import '../../shared/widgets/motion.dart';
 
 /// Monchi brand colors taken from the logo and the Figma design.
 abstract final class Brand {
@@ -12,6 +13,9 @@ abstract final class Brand {
   /// Figma "mint": Material 3 seed, every color role derives from it.
   static const mint = Color(0xFF14B8A6);
   static const coral = Color(0xFFFD7958);
+
+  /// Light background base (the dark one is [ink]).
+  static const cream = Color(0xFFFAFAF7);
 }
 
 abstract final class AppTheme {
@@ -39,12 +43,18 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.surface,
+      // Transparent: MonchiBackground (app.dart) shows behind every screen.
+      scaffoldBackgroundColor: Colors.transparent,
       extensions: [
         brightness == Brightness.light ? FinanceColors.light : FinanceColors.dark,
       ],
       appBarTheme: AppBarTheme(
-        backgroundColor: scheme.surface,
+        // Clear over the background; solid once content scrolls under it.
+        backgroundColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.scrolledUnder)
+              ? scheme.surface.withValues(alpha: 0.94)
+              : Colors.transparent,
+        ),
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -94,8 +104,8 @@ abstract final class AppTheme {
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: MonchiPageTransitionsBuilder(),
+          TargetPlatform.iOS: MonchiPageTransitionsBuilder(),
         },
       ),
     );

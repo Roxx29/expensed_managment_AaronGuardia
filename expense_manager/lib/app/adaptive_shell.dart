@@ -50,7 +50,7 @@ class AdaptiveShell extends StatelessWidget {
       const gap = 2;
       final current = navigationShell.currentIndex;
       return Scaffold(
-        body: navigationShell,
+        body: _TabTransition(index: current, child: navigationShell),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         floatingActionButton: showAdd
             ? const Padding(padding: EdgeInsets.only(top: 24), child: _AddButton())
@@ -90,7 +90,7 @@ class AdaptiveShell extends StatelessWidget {
               ],
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: navigationShell),
+            Expanded(child: _TabTransition(index: navigationShell.currentIndex, child: navigationShell)),
           ],
         ),
       ),
@@ -116,6 +116,51 @@ class _AddButton extends StatelessWidget {
         shape: const CircleBorder(),
         onPressed: () => context.push(Routes.newTransaction),
         child: const Icon(Icons.add_rounded, size: 32),
+      ),
+    );
+  }
+}
+
+/// Switching tabs: the new tab fades in while sliding a few pixels from the
+/// side of the tab it comes from (220 ms). The + button and the bar don't
+/// move. One short controller, idle between switches.
+class _TabTransition extends StatefulWidget {
+  const _TabTransition({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_TabTransition> createState() => _TabTransitionState();
+}
+
+class _TabTransitionState extends State<_TabTransition> with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 220), value: 1);
+  var _fromX = 0.0;
+
+  @override
+  void didUpdateWidget(_TabTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index != widget.index) {
+      _fromX = widget.index > oldWidget.index ? 0.03 : -0.03;
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = _controller.drive(CurveTween(curve: Curves.easeOutCubic));
+    return FadeTransition(
+      opacity: t,
+      child: SlideTransition(
+        position: t.drive(Tween(begin: Offset(_fromX, 0), end: Offset.zero)),
+        child: widget.child,
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -178,5 +179,59 @@ class _SuccessBurst extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Page name that opens a route as a modal (fade + scale) instead of the
+/// sideways fade. Set by `_modal` in router.dart (forms, paywall, welcome).
+const modalPageName = 'monchi-modal';
+
+/// Page transitions for the whole app (app_theme.dart). Screens are
+/// transparent over MonchiBackground, so the page underneath fades out while
+/// the new one comes in; otherwise both would show at once. Going back plays
+/// the same animation in reverse.
+/// - Inner screens (More › Statistics…): fade + slide in 3% from the right.
+/// - Modals (new transaction, paywall…): fade + scale 0.95 → 1.
+/// - iOS inner screens keep the native slide, so swipe-back still works.
+class MonchiPageTransitionsBuilder extends PageTransitionsBuilder {
+  const MonchiPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 280);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 220);
+
+  static final _fadeOut = Tween<double>(begin: 1, end: 0).chain(CurveTween(curve: const Interval(0, 0.6)));
+  static final _fadeIn = CurveTween(curve: const Interval(0.2, 1, curve: Curves.easeOutCubic));
+  static final _slideIn = Tween(begin: const Offset(0.03, 0), end: Offset.zero)
+      .chain(CurveTween(curve: Curves.easeOutCubic));
+  static final _scaleIn = Tween<double>(begin: 0.95, end: 1).chain(CurveTween(curve: Curves.easeOutCubic));
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final modal = route.settings.name == modalPageName;
+    final Widget incoming;
+    if (modal) {
+      incoming = FadeTransition(
+        opacity: animation.drive(_fadeIn),
+        child: ScaleTransition(scale: animation.drive(_scaleIn), child: child),
+      );
+    } else if (Theme.of(context).platform == TargetPlatform.iOS) {
+      incoming = const CupertinoPageTransitionsBuilder()
+          .buildTransitions(route, context, animation, secondaryAnimation, child);
+    } else {
+      incoming = FadeTransition(
+        opacity: animation.drive(_fadeIn),
+        child: SlideTransition(position: animation.drive(_slideIn), child: child),
+      );
+    }
+    return FadeTransition(opacity: secondaryAnimation.drive(_fadeOut), child: incoming);
   }
 }
