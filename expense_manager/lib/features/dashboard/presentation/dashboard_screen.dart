@@ -16,6 +16,7 @@ import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/motion.dart';
 import '../../../shared/widgets/transaction_tile.dart';
+import '../../backup/application/cloud_backup.dart';
 import '../../onboarding/welcome_screen.dart';
 import '../../premium/application/gift_providers.dart';
 import '../application/dashboard_providers.dart';
@@ -76,6 +77,7 @@ class _DashboardBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final primary = <Widget>[
       if (ref.watch(announcementProvider).value != null) const _AnnouncementCard(),
+      if (ref.watch(cloudBackupReminderProvider)) const _BackupReminderCard(),
       _BalanceCard(data: data),
       _BudgetCard(data: data),
       if (data.insights.isNotEmpty) _AlertsCard(insights: data.insights),
@@ -245,6 +247,54 @@ class _AnnouncementCard extends ConsumerWidget {
       child: ListTile(
         leading: Icon(Icons.campaign_rounded, color: scheme.onSecondaryContainer),
         title: Text(text, style: TextStyle(color: scheme.onSecondaryContainer)),
+      ),
+    );
+  }
+}
+
+/// Suggests a cloud backup (BackupPolicy.shouldRemindCloudBackup).
+class _BackupReminderCard extends ConsumerWidget {
+  const _BackupReminderCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final onCard = scheme.onTertiaryContainer;
+    return Card(
+      color: scheme.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.cloud_upload_rounded, color: onCard),
+              title: Text(
+                context.tr('Protect your data'),
+                style: TextStyle(color: onCard, fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                context.tr('If you lose your phone, your records go with it. Save an encrypted copy in the cloud.'),
+                style: TextStyle(color: onCard),
+              ),
+            ),
+            OverflowBar(
+              alignment: MainAxisAlignment.end,
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => ref.read(cloudBackupProvider).snoozeReminder(),
+                  child: Text(context.tr('Later')),
+                ),
+                FilledButton.tonal(
+                  onPressed: () => context.push(Routes.backup),
+                  child: Text(context.tr('Back up now')),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

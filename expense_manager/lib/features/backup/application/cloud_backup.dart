@@ -4,10 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../data/backup/backup_codec.dart';
 import '../../../data/backup/backup_crypto.dart';
+import '../../../domain/backup/backup_policy.dart';
+import '../../../shared/providers/providers.dart';
 import 'backup_providers.dart';
 
 // Firebase project settings. They ship inside every APK and are not secret
@@ -62,12 +65,74 @@ final cloudUserProvider = StreamProvider<String?>((ref) async* {
 
 final cloudBackupProvider = Provider<CloudBackup>(CloudBackup.new);
 
+/// App setting with the time of this phone's last successful cloud upload.
+const lastCloudUploadKey = 'backup.cloud_last_upload';
+
+/// `<uid>:<passphrase>` for automatic uploads, so another account signing in
+/// on this phone never inherits it. Secure storage only: never in the
+/// database, so it is never inside a backup.
+// ponytail: not wiped on an iOS reinstall like the PIN keys (app_lock.dart);
+// cloud is Android-only today, add it to that wipe when iOS gets the cloud.
+const _autoPassphraseKey = 'cloud.auto_passphrase';
+const _secure = FlutterSecureStorage(
+  aOptions: AndroidOptions(),
+  iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+);
+
+/// The saved passphrase when it belongs to the signed-in account.
+Future<String?> _autoPassphrase() async {
+  final saved = await _secure.read(key: _autoPassphraseKey);
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (saved == null || uid == null || !saved.startsWith('$uid:')) return null;
+  return saved.substring(uid.length + 1);
+}
+
+/// When this phone last uploaded its cloud backup; null = never.
+final lastCloudUploadProvider = StreamProvider<DateTime?>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watch(lastCloudUploadKey)
+      .map((v) => v == null ? null : DateTime.tryParse(v)),
+);
+
+const _reminderSnoozeKey = 'backup.cloud_reminder_snoozed_until';
+
+final _reminderSnoozeProvider = StreamProvider<DateTime?>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watch(_reminderSnoozeKey)
+      .map((v) => v == null ? null : DateTime.tryParse(v)),
+);
+
+/// Home card "Protect your data" (rule: BackupPolicy.shouldRemindCloudBackup).
+final cloudBackupReminderProvider = Provider<bool>((ref) {
+  if (!cloudAvailable) return false;
+  final last = ref.watch(lastCloudUploadProvider);
+  final snoozed = ref.watch(_reminderSnoozeProvider);
+  final count = ref.watch(allTransactionsProvider.select((t) => t.value?.length ?? 0));
+  // Hidden until both settings loaded, so the card never flashes.
+  if (!last.hasValue || !snoozed.hasValue) return false;
+  return BackupPolicy.shouldRemindCloudBackup(
+    lastUpload: last.value,
+    snoozedUntil: snoozed.value,
+    transactionCount: count,
+    now: ref.watch(clockProvider)(),
+  );
+});
+
+/// Premium: every automatic backup is also uploaded to the cloud.
+final cloudAutoUploadProvider = FutureProvider<bool>((ref) async {
+  // Re-checked when the account changes.
+  if (await ref.watch(cloudUserProvider.future) == null) return false;
+  return await _autoPassphrase() != null;
+});
+
 /// One backup per account in Firestore (no Cloud Storage, so no paid plan):
 /// `backups/<uid>` {version, chunks, size, updatedAt} plus the text in
 /// `backups/<uid>/chunks/<version>_<i>` (a document holds at most 1 MiB).
 /// Always encrypted on the phone with the user's passphrase (backup_crypto.dart).
-// ponytail: manual upload only (the passphrase is asked each time); automatic
-// cloud uploads need the passphrase kept in secure storage.
+/// Manual uploads are free; automatic ones (Premium) reuse the passphrase kept
+/// in secure storage and run right after an automatic local backup.
 class CloudBackup {
   CloudBackup(this._ref);
 
@@ -144,6 +209,11 @@ class CloudBackup {
   }
 
   Future<void> signOut() async {
+    try {
+      await disableAutoUpload();
+    } on Object {
+      // Still sign out; the saved passphrase is bound to this account anyway.
+    }
     await FirebaseAuth.instance.signOut();
     await GoogleSignIn.instance.signOut();
   }
@@ -170,6 +240,36 @@ class CloudBackup {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     await _deleteChunks(uid, keepVersion: version);
+    await _markUploaded();
+  }
+
+  Future<void> _markUploaded() =>
+      _ref.read(settingsRepositoryProvider).write(lastCloudUploadKey, _ref.read(clockProvider)().toIso8601String());
+
+  /// "Later" on the Home reminder.
+  Future<void> snoozeReminder() => _ref
+      .read(settingsRepositoryProvider)
+      .write(_reminderSnoozeKey, _ref.read(clockProvider)().add(BackupPolicy.remindSnooze).toIso8601String());
+
+  Future<void> enableAutoUpload(String passphrase) async {
+    await _secure.write(key: _autoPassphraseKey, value: '${_user.uid}:$passphrase');
+    _ref.invalidate(cloudAutoUploadProvider);
+  }
+
+  Future<void> disableAutoUpload() async {
+    await _secure.delete(key: _autoPassphraseKey);
+    _ref.invalidate(cloudAutoUploadProvider);
+  }
+
+  /// Uploads with the saved passphrase when automatic upload is on and an
+  /// account is signed in; otherwise does nothing.
+  Future<void> uploadIfAuto() async {
+    if (!cloudAvailable) return;
+    await ensureCloudReady();
+    // Firebase restores the signed-in user asynchronously after launch.
+    if (await FirebaseAuth.instance.authStateChanges().first == null) return;
+    final passphrase = await _autoPassphrase();
+    if (passphrase != null) await upload(passphrase);
   }
 
   /// Deletes every chunk except [keepVersion]'s, also ones a failed upload left.
@@ -207,6 +307,9 @@ class CloudBackup {
     final passphrase = await askPassphrase();
     if (passphrase == null) return false;
     await _ref.read(backupServiceProvider).restoreFromContent(await decryptBackup(text, passphrase));
+    // The restored settings carry an older upload date; this phone now
+    // matches the cloud copy.
+    await _markUploaded();
     return true;
   }
 
@@ -233,6 +336,7 @@ class CloudBackup {
       await user.reauthenticateWithCredential(GoogleAuthProvider.credential(idToken: account.authentication.idToken));
       await user.delete();
     }
+    await disableAutoUpload();
     try {
       await GoogleSignIn.instance.disconnect();
     } on Object {

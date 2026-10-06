@@ -31,4 +31,34 @@ void main() {
     expect(BackupPolicy.isDue(BackupFrequency.monthly, jan31, DateTime(2026, 2, 27)), isFalse);
     expect(BackupPolicy.isDue(BackupFrequency.monthly, jan31, DateTime(2026, 2, 28)), isTrue);
   });
+
+  group('shouldRemindCloudBackup', () {
+    final now = DateTime(2026, 10, 6, 12);
+    bool remind({DateTime? lastUpload, DateTime? snoozedUntil, int transactions = 20}) =>
+        BackupPolicy.shouldRemindCloudBackup(
+          lastUpload: lastUpload,
+          snoozedUntil: snoozedUntil,
+          transactionCount: transactions,
+          now: now,
+        );
+
+    test('never uploaded with enough data reminds', () {
+      expect(remind(), isTrue);
+    });
+
+    test('too little data to lose does not remind', () {
+      expect(remind(transactions: BackupPolicy.remindMinTransactions - 1), isFalse);
+      expect(remind(transactions: BackupPolicy.remindMinTransactions), isTrue);
+    });
+
+    test('a recent upload does not remind; an old one does', () {
+      expect(remind(lastUpload: now.subtract(const Duration(days: 29))), isFalse);
+      expect(remind(lastUpload: now.subtract(BackupPolicy.remindAfter)), isTrue);
+    });
+
+    test('snoozed until a later date does not remind', () {
+      expect(remind(snoozedUntil: now.add(const Duration(minutes: 1))), isFalse);
+      expect(remind(snoozedUntil: now), isTrue);
+    });
+  });
 }

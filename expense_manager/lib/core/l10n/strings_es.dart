@@ -2,6 +2,23 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  // Stage 1 after the first-month report: cloud reminder, automatic cloud upload, pricing copy.
+  'Protect your data': 'Protege tus datos',
+  'If you lose your phone, your records go with it. Save an encrypted copy in the cloud.':
+      'Si pierdes el teléfono, tus registros se van con él. Guarda una copia cifrada en la nube.',
+  'Later': 'Más tarde',
+  'Upload automatically': 'Subir automáticamente',
+  'Premium. Every automatic backup is also uploaded, encrypted. The passphrase stays on this phone, in secure storage.':
+      'Premium. Cada copia automática también se sube, cifrada. La contraseña se queda en este teléfono, en el almacenamiento seguro.',
+  'Last upload: {date}': 'Última subida: {date}',
+  'Replace': 'Reemplazar',
+  'Replace your cloud backup?': '¿Reemplazar tu copia en la nube?',
+  'The cloud backup from {when} will be replaced with the data on this phone. To bring that backup to this phone, use Restore from the cloud instead.':
+      'La copia en la nube del {when} se reemplazará con los datos de este teléfono. Para traer esa copia a este teléfono, usa Restaurar desde la nube.',
+  'Automatic backups, also to the cloud (encrypted), and CSV export':
+      'Copias automáticas, también en la nube (cifradas), y exportar a CSV',
+  'One payment a year': 'Un solo pago al año',
+  'Best value: pay once, no renewals': 'Mejor valor: pagas una vez, sin renovaciones',
   // Premium status and animations (build 20).
   'Your plan': 'Tu plan',
   'Gift from Monchi': 'Regalo de Monchi',
@@ -65,7 +82,6 @@ const esStrings = <String, String>{
   'This code was already used.': 'Este código ya se usó.',
   'Have a code or a gift?': '¿Tienes un código o un regalo?',
   'Sign in with Google to receive Premium gifted by Monchi or to redeem a code.': 'Inicia sesión con Google para recibir Premium regalado por Monchi o canjear un código.',
-  'Encrypted cloud backup, automatic backups, CSV export': 'Copia cifrada en la nube, copias automáticas, exportar a CSV',
   'There is no backup in the cloud yet.': 'Todavía no hay una copia en la nube.',
   'Could not connect to the cloud. Check your internet connection and try again.': 'No se pudo conectar con la nube. Revisa tu conexión a internet e inténtalo de nuevo.',
   'Backup saved in the cloud': 'Copia guardada en la nube',
@@ -561,7 +577,6 @@ const esStrings = <String, String>{
   '{price}/year': '{price}/año',
   '{price} once': '{price} una sola vez',
   'Free trial, then {price}': 'Prueba gratis, luego {price}',
-  'Best value': 'Mejor precio',
   'Try free': 'Probar gratis',
   'Choose': 'Elegir',
   'Purchases are not available right now. Install Monchi from Google Play and check your connection.': 'Las compras no están disponibles ahora. Instala Monchi desde Google Play y revisa tu conexión.',

@@ -93,7 +93,7 @@ class PaywallScreen extends ConsumerWidget {
       (Icons.insights_rounded, context.tr('Full statistics: yearly highlights, categories and history')),
       (Icons.document_scanner_rounded, context.tr('Scan receipts and import bank statements')),
       (Icons.auto_awesome_rounded, context.tr('Finance assistant')),
-      (Icons.lock_rounded, context.tr('Encrypted cloud backup, automatic backups, CSV export')),
+      (Icons.lock_rounded, context.tr('Automatic backups, also to the cloud (encrypted), and CSV export')),
     ];
 
     return Scaffold(
@@ -297,11 +297,12 @@ class _PlanCard extends ConsumerWidget {
       yearlyProductId => (context.tr('Yearly'), context.tr('{price}/year', {'price': price})),
       _ => (context.tr('Lifetime'), context.tr('{price} once', {'price': price})),
     };
-    final yearly = product.id == yearlyProductId;
+    // Lifetime is highlighted: no renewals, the plan families prefer.
+    final lifetime = product.id == lifetimeProductId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
-        shape: yearly
+        shape: lifetime
             ? RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: const BorderSide(color: Brand.yellow, width: 2),
@@ -321,8 +322,13 @@ class _PlanCard extends ConsumerWidget {
                           ? context.tr('Free trial, then {price}', {'price': priceText})
                           : priceText,
                     ),
-                    if (yearly)
-                      Text(context.tr('Best value'), style: TextStyle(color: FinanceColors.of(context).income)),
+                    if (product.id == yearlyProductId)
+                      Text(context.tr('One payment a year'), style: Theme.of(context).textTheme.bodySmall),
+                    if (lifetime)
+                      Text(
+                        context.tr('Best value: pay once, no renewals'),
+                        style: TextStyle(color: FinanceColors.of(context).income, fontWeight: FontWeight.w700),
+                      ),
                   ],
                 ),
               ),

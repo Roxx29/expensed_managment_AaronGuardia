@@ -106,10 +106,66 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     return showDialog<String>(context: context, builder: (_) => PassphraseDialog(confirm: confirm));
   }
 
-  /// Premium: one encrypted backup in the user's Google account.
+  /// There is one cloud slot per account: confirm before replacing a copy
+  /// (e.g. on a new phone that hasn't restored it yet). False = cancelled.
+  Future<bool> _confirmReplaceCloud(CloudBackup cloud) async {
+    final date = await cloud.backupDate();
+    if (!mounted) return false;
+    if (date == null) return true;
+    final when = DateFormat.yMMMd(context.lang).add_jm().format(date);
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(context.tr('Replace your cloud backup?')),
+            content: Text(
+              context.tr(
+                'The cloud backup from {when} will be replaced with the data on this phone. To bring that backup to this phone, use Restore from the cloud instead.',
+                {'when': when},
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Replace'))),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  /// Premium: also upload every automatic backup (asks the passphrase once).
+  void _setAutoUpload(bool on) {
+    final cloud = ref.read(cloudBackupProvider);
+    if (!on) {
+      _run(() async {
+        await cloud.disableAutoUpload();
+        return null;
+      });
+      return;
+    }
+    if (!requirePremium(context, ref)) return;
+    // Read now: the screen may be gone after the awaits.
+    final actions = ref.read(backupActionsProvider);
+    final scheduleOff = (ref.read(backupFrequencyProvider).value ?? BackupFrequency.off) == BackupFrequency.off;
+    final uploadedText = context.tr('Backup saved in the cloud');
+    _run(() async {
+      if (!await _confirmReplaceCloud(cloud)) return null;
+      final passphrase = await _askPassphrase(confirm: true);
+      if (passphrase == null) return null;
+      // Upload first: the passphrase is only kept once an upload worked.
+      await cloud.upload(passphrase);
+      await cloud.enableAutoUpload(passphrase);
+      if (scheduleOff) await actions.setFrequency(BackupFrequency.weekly);
+      return uploadedText;
+    });
+  }
+
+  /// One encrypted backup per account. Uploading and restoring are free;
+  /// automatic uploads are Premium.
   Widget _cloudCard(BuildContext context) {
     final cloud = ref.read(cloudBackupProvider);
     final email = ref.watch(cloudUserProvider).value;
+    final autoUpload = ref.watch(cloudAutoUploadProvider).value ?? false;
+    final lastUpload = ref.watch(lastCloudUploadProvider).value;
     final uploadedText = context.tr('Backup saved in the cloud');
     final restoredText = context.tr('Backup restored');
     final deletedText = context.tr('Account and cloud backup deleted');
@@ -143,15 +199,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 FilledButton.icon(
                   onPressed: _busy
                       ? null
-                      : () {
-                          if (!requirePremium(context, ref)) return;
-                          _run(() async {
+                      : () => _run(() async {
+                            if (!await _confirmReplaceCloud(cloud)) return null;
                             final passphrase = await _askPassphrase(confirm: true);
                             if (passphrase == null) return null;
                             await cloud.upload(passphrase);
+                            // Automatic uploads must keep the newest copy's passphrase.
+                            if (autoUpload) await cloud.enableAutoUpload(passphrase);
                             return uploadedText;
-                          });
-                        },
+                          }),
                   icon: const Icon(Icons.cloud_upload_rounded),
                   label: Text(context.tr('Upload to the cloud')),
                 ),
@@ -171,6 +227,24 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   label: Text(context.tr('Restore from the cloud')),
                 ),
               ],
+            ),
+            if (lastUpload != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Last upload: {date}', {'date': DateFormat.yMMMd(context.lang).add_jm().format(lastUpload)}),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: autoUpload,
+              onChanged: _busy ? null : _setAutoUpload,
+              title: Text(context.tr('Upload automatically')),
+              subtitle: Text(
+                context.tr(
+                  'Premium. Every automatic backup is also uploaded, encrypted. The passphrase stays on this phone, in secure storage.',
+                ),
+              ),
             ),
             const SizedBox(height: 4),
             Wrap(

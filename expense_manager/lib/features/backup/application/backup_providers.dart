@@ -16,6 +16,7 @@ import '../../../domain/backup/backup_policy.dart';
 import '../../../domain/export/csv_export.dart';
 import '../../../shared/providers/providers.dart';
 import '../../premium/application/premium_providers.dart';
+import 'cloud_backup.dart';
 
 const _frequencyKey = 'backup.frequency';
 
@@ -51,12 +52,24 @@ final autoBackupProvider = FutureProvider<bool>((ref) async {
   if (!ref.watch(premiumProvider)) return false;
   final service = ref.watch(backupServiceProvider);
   final frequency = await ref.watch(backupFrequencyProvider.future);
+  final bool done;
   try {
-    return await service.runAutomaticIfDue(frequency);
+    done = await service.runAutomaticIfDue(frequency);
   } on Object {
     // Best effort (e.g. disk full): retried on next launch, never blocks the app.
     return false;
   }
+  try {
+    // Also when an earlier upload failed (offline): retried on every launch
+    // until the cloud copy is as recent as the schedule asks.
+    final lastUpload = DateTime.tryParse(await ref.read(settingsRepositoryProvider).read(lastCloudUploadKey) ?? '');
+    if (done || BackupPolicy.isDue(frequency, lastUpload, ref.read(clockProvider)())) {
+      await ref.read(cloudBackupProvider).uploadIfAuto();
+    }
+  } on Object {
+    // Offline or a cloud error: tried again on the next launch.
+  }
+  return done;
 });
 
 final backupActionsProvider = Provider<BackupActions>(BackupActions.new);

@@ -61,7 +61,11 @@ service cloud.firestore {
         allow read: if isMe(uid);
         allow list: if isAdmin(); // to delete them
         allow delete: if isMe(uid) || isAdmin();
+        // `<version millis>_<index>`, index < 120 (same cap as the metadata),
+        // so one account can't fill the project's storage with extra chunks.
         allow create, update: if isMe(uid) && !isBlocked(uid)
+          && chunk.matches('^[0-9]{13}_[0-9]{1,3}$')
+          && int(chunk.split('_')[1]) < 120
           && request.resource.data.keys().hasOnly(['data'])
           && request.resource.data.data is string
           && request.resource.data.data.size() <= 900000;

@@ -31,4 +31,21 @@ abstract final class BackupPolicy {
   /// [newestFirst] must be sorted by creation date, newest first.
   static List<String> toPrune(List<String> newestFirst, int keep) =>
       newestFirst.length <= keep ? const [] : newestFirst.sublist(keep);
+
+  /// The Home screen suggests a cloud backup when the last upload is older
+  /// than [remindAfter] (or never happened) and there is data worth keeping.
+  static const remindAfter = Duration(days: 30);
+  static const remindSnooze = Duration(days: 14);
+  static const remindMinTransactions = 5;
+
+  static bool shouldRemindCloudBackup({
+    required DateTime? lastUpload,
+    required DateTime? snoozedUntil,
+    required int transactionCount,
+    required DateTime now,
+  }) {
+    if (transactionCount < remindMinTransactions) return false;
+    if (snoozedUntil != null && now.isBefore(snoozedUntil)) return false;
+    return lastUpload == null || !now.isBefore(lastUpload.add(remindAfter));
+  }
 }
