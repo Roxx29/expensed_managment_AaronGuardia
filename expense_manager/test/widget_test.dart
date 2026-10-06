@@ -40,7 +40,12 @@ Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
 Future<void> _openSettings(WidgetTester tester) async {
   await tester.tap(find.text('More'));
   await tester.pumpAndSettle();
-  await tester.ensureVisible(find.text('Settings'));
+  // The More list is lazy: Settings may not be built until it is scrolled to.
+  await tester.scrollUntilVisible(
+    find.text('Settings'),
+    200,
+    scrollable: find.ancestor(of: find.text('Statistics'), matching: find.byType(Scrollable)).first,
+  );
   await tester.pumpAndSettle();
   await tester.tapAt(tester.getTopLeft(find.text('Settings')) + const Offset(4, 4));
   await tester.pumpAndSettle();
