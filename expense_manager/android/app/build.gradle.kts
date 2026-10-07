@@ -3,6 +3,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
+    id("com.google.firebase.crashlytics")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -54,6 +55,11 @@ android {
     buildTypes {
         release {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // No google-services.json (Firebase starts from Dart options), so
+            // the R8 mapping upload has no app id: keep Java traces unmapped.
+            (this as ExtensionAware).configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
             // The same key must sign every version, or Android refuses to
             // update the installed app (the user would have to uninstall it).
             signingConfig = if (keystorePropertiesFile.exists()) {

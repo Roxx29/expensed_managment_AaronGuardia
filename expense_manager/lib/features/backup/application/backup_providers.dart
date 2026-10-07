@@ -17,6 +17,7 @@ import '../../../domain/backup/backup_policy.dart';
 import '../../../domain/export/csv_export.dart';
 import '../../../shared/providers/providers.dart';
 import '../../premium/application/premium_providers.dart';
+import '../../premium/application/usage_ping.dart';
 import 'cloud_backup.dart';
 
 const _frequencyKey = 'backup.frequency';
@@ -125,6 +126,7 @@ class BackupActions {
     String? walletId,
     Rect? origin,
   }) async {
+    _ref.read(usageTrackerProvider).track(walletId == null ? 'csv_export' : 'wallet_export');
     final repo = _ref.read(transactionRepositoryProvider);
     final transactions = selectForExport(
       await (walletId == null ? repo.watchAll() : repo.watchWallet(walletId)).first,

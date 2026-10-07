@@ -6,7 +6,7 @@ import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { firebaseConfig, prices } from './config.js';
-import { computeMetrics } from './metrics.js';
+import { computeMetrics, featureUsage, stability } from './metrics.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -46,7 +46,7 @@ function redemptionUntil(r) {
 const redemptionActive = (r) => r && !r.revoked && (r.days == null || redemptionUntil(r) > new Date());
 
 // ---------- state ----------
-let S = { users: [], grants: {}, redemptions: {}, codes: [], announcement: null, backups: null, wallets: null, tab: location.hash.slice(1) || 'resumen', q: '' };
+let S = { users: [], grants: {}, redemptions: {}, codes: [], announcement: null, backups: null, wallets: null, sub: 'general', tab: location.hash.slice(1) || 'resumen', q: '' };
 
 async function load() {
   const [u, g, r, c, a] = await Promise.all([
@@ -117,7 +117,7 @@ function hbars(rows) {
     h('span', {}, name), h('div', { class: 'track' }, h('i', { style: `width:${(n / max) * 100}%` })), h('b', {}, n)));
 }
 
-function resumen() {
+function general() {
   const m = computeMetrics(S.users, { premiumOf, prices });
   const pct = (v) => (v == null ? '—' : `${v} %`);
   const stat = (value, label, note) => h('div', { class: 'stat' }, h('b', {}, value ?? '—'), h('span', {}, label), note ? h('small', {}, note) : null);
@@ -174,6 +174,81 @@ function resumen() {
       'Solo cuentan quienes iniciaron sesión con Google en la app (Monchi no registra a los demás, por privacidad). ',
       'Aperturas, días activos y plan llegan desde la build 31; las builds anteriores solo informan la última visita. ',
       'Los pagos los informa la app (no verificados con Google): las cifras reales están en Play Console › Informes financieros.'),
+  ];
+}
+
+// Feature names the app sends (domain/usage/feature_counts.dart) → Spanish.
+const FEATURES = {
+  home: 'Inicio', history: 'Historial de movimientos', budgets: 'Presupuestos', more: 'Menú Más',
+  statistics: 'Estadísticas', wallets: 'Lista de carteras', wallet_open: 'Abrir una cartera', assistant: 'Asistente',
+  subscriptions: 'Suscripciones', recurring: 'Gastos recurrentes', savings: 'Metas de ahorro',
+  categories: 'Categorías y métodos de pago', profile: 'Perfil', backup: 'Copias de seguridad', security: 'Seguridad (PIN)',
+  notifications: 'Notificaciones', import: 'Importar extracto', settings: 'Ajustes', paywall: 'Pantalla Premium',
+  expense_added: 'Gasto registrado', income_added: 'Ingreso registrado', wallet_entry: 'Movimiento en cartera',
+  receipt_scan: 'Escaneo de recibo', csv_import: 'Importación CSV', csv_export: 'Exportación CSV', wallet_export: 'Exportar cartera',
+};
+const SCREENS = new Set(['home', 'history', 'budgets', 'more', 'statistics', 'wallets', 'wallet_open', 'assistant', 'subscriptions',
+  'recurring', 'savings', 'categories', 'profile', 'backup', 'security', 'notifications', 'import', 'settings', 'paywall']);
+const note = (text) => h('p', { class: 'muted', style: 'margin-top:22px' }, text);
+
+function funciones() {
+  const all = featureUsage(S.users);
+  const reporting = S.users.filter((u) => u.features && typeof u.features === 'object').length;
+  const card = (title, sub, rows) => h('div', { class: 'card' }, h('h2', {}, title), h('p', { class: 'sub' }, sub),
+    rows.length ? hbars(rows.map((f) => [FEATURES[f.key] ?? f.key, f.users]))
+      : h('p', { class: 'muted' }, 'Aún no hay datos: llegan cuando los usuarios actualizan a la build 32.'));
+  const top = all[0];
+  return [
+    h('div', { class: 'grid' },
+      h('div', { class: 'stat' }, h('b', {}, reporting), h('span', {}, 'Usuarios que envían datos de uso')),
+      h('div', { class: 'stat' }, h('b', {}, top ? FEATURES[top.key] ?? top.key : '—'), h('span', {}, 'Función más usada')),
+      h('div', { class: 'stat' }, h('b', {}, all.reduce((s, f) => s + f.uses, 0).toLocaleString('es')), h('span', {}, 'Usos registrados en total'))),
+    h('div', { class: 'cols', style: 'margin-top:22px' },
+      card('Acciones', 'Personas que lo hicieron al menos una vez', all.filter((f) => !SCREENS.has(f.key))),
+      card('Pantallas', 'Personas que la abrieron al menos una vez', all.filter((f) => SCREENS.has(f.key)))),
+    h('div', { class: 'card', style: 'margin-top:22px' }, h('h2', {}, 'Detalle'),
+      h('div', { class: 'scroll' }, h('table', {},
+        h('tr', {}, ['Función', 'Personas', '% de usuarios', 'Usos', 'Usos por persona'].map((t) => h('th', {}, t))),
+        all.map((f) => h('tr', {},
+          h('td', {}, FEATURES[f.key] ?? f.key), h('td', {}, f.users),
+          h('td', {}, reporting ? `${Math.round((f.users / reporting) * 100)} %` : '—'),
+          h('td', {}, f.uses.toLocaleString('es')), h('td', {}, (f.uses / f.users).toFixed(1))))))),
+    note('Cuenta cuántas personas usan cada función y cuántas veces, sin guardar nada de lo que registran. Solo usuarios con sesión iniciada y la build 32 o posterior.'),
+  ];
+}
+
+function estabilidad() {
+  const st = stability(S.users);
+  const url = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/crashlytics`;
+  const stat = (value, label, sub) => h('div', { class: 'stat' }, h('b', {}, value ?? '—'), h('span', {}, label), sub ? h('small', {}, sub) : null);
+  return [
+    h('div', { class: 'grid' },
+      stat(st.crashFree == null ? null : `${st.crashFree} %`, 'Usuarios sin cierres inesperados', `de ${st.reporting} que envían datos`),
+      stat(st.crashes, 'Cierres inesperados (crashes)'),
+      stat(st.usersWithCrash, 'Personas afectadas'),
+      stat(st.errors.toLocaleString('es'), 'Errores capturados', 'no cerraron la app')),
+    h('div', { class: 'card', style: 'margin-top:22px' }, h('h2', {}, 'Por versión'),
+      h('p', { class: 'sub' }, 'Si una build nueva tiene más cierres que la anterior, algo se rompió en esa versión.'),
+      st.perBuild.length
+        ? h('div', { class: 'scroll' }, h('table', {},
+          h('tr', {}, ['Build', 'Usuarios', 'Cierres', 'Errores', 'Cierres por usuario'].map((t) => h('th', {}, t))),
+          st.perBuild.map((b) => h('tr', {}, h('td', {}, `build ${b.build}`), h('td', {}, b.users), h('td', {}, b.crashes),
+            h('td', {}, b.errors), h('td', {}, (b.crashes / b.users).toFixed(2))))))
+        : h('p', { class: 'muted' }, 'Aún no hay datos: llegan con la build 32.')),
+    h('div', { class: 'card' }, h('h2', {}, 'Detalle de cada error (Firebase Crashlytics)'),
+      h('p', { class: 'sub' }, 'Crashlytics guarda el mensaje, la pantalla del código y el modelo de teléfono de cada fallo. Se ve en la consola de Firebase.'),
+      h('a', { class: 'btn primary', href: url, target: '_blank', rel: 'noopener' }, 'Abrir Crashlytics')),
+    note('Los cierres se cuentan al abrir la app la vez siguiente. Solo usuarios con sesión iniciada (build 32 o posterior); Crashlytics recibe los fallos de todos.'),
+  ];
+}
+
+/** Métricas: General · Funciones más usadas · Estabilidad. */
+function resumen() {
+  const subs = [['general', 'General'], ['funciones', 'Funciones más usadas'], ['estabilidad', 'Errores y estabilidad']];
+  return [
+    h('nav', { class: 'subnav', 'aria-label': 'Métricas' }, subs.map(([id, name]) =>
+      h('button', { class: S.sub === id ? 'on' : '', 'aria-pressed': S.sub === id ? 'true' : 'false', onclick: () => { S.sub = id; render(); } }, name))),
+    ...({ general, funciones, estabilidad }[S.sub] ?? general)(),
   ];
 }
 

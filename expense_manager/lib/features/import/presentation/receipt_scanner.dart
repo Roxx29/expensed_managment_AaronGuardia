@@ -12,6 +12,7 @@ import '../../../core/l10n/l10n.dart';
 import '../../../core/money/currency.dart';
 import '../../../domain/import/receipt_parser.dart';
 import '../../../shared/providers/providers.dart';
+import '../../premium/application/usage_ping.dart';
 import '../../premium/presentation/paywall_screen.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 
@@ -102,6 +103,7 @@ class ScanReceiptButton extends ConsumerWidget {
             preferMonthFirst: ref.read(profileProvider).value?.countryCode == 'US',
           );
           if (draft == null || !context.mounted) return;
+          ref.read(usageTrackerProvider).track('receipt_scan');
           context.pushReplacement(Routes.newWalletTransaction(walletId), extra: draft);
         },
       );

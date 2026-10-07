@@ -41,3 +41,23 @@ assert.equal(m.activePerDay.at(-1).n, 2);
 assert.equal(m.signupsPerMonth.at(-1).n, 1);
 assert.equal(m.signupsPerMonth.at(-2).n, 2);
 console.log('admin metrics: all checks passed');
+
+// Feature usage and stability.
+import { featureUsage, stability } from '../admin_web/metrics.js';
+const fu = [
+  { appBuild: '32', features: { statistics: 3, receipt_scan: 1, crash: 1, error: 4 } },
+  { appBuild: '32', features: { statistics: 1 } },
+  { appBuild: '31' }, // old build: no features
+];
+assert.deepEqual(featureUsage(fu), [
+  { key: 'statistics', uses: 4, users: 2 },
+  { key: 'receipt_scan', uses: 1, users: 1 },
+]);
+const st = stability(fu);
+assert.equal(st.reporting, 2);
+assert.equal(st.crashes, 1);
+assert.equal(st.errors, 4);
+assert.equal(st.usersWithCrash, 1);
+assert.equal(st.crashFree, 50);
+assert.deepEqual(st.perBuild, [{ build: '32', users: 2, crashes: 1, errors: 4 }]);
+console.log('feature usage + stability: all checks passed');

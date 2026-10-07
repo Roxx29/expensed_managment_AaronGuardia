@@ -44,6 +44,8 @@ dependencies:
   # Monchi Premium: encrypted cloud backup (Google sign-in + Firestore)
   firebase_core: ^4.1.0
   firebase_auth: ^6.1.0
+  # Crash reports (Firebase console › Crashlytics)
+  firebase_crashlytics: ^5.0.0
   google_sign_in: ^7.2.0
   # Admin panel: Premium gifts, promo codes, announcements
   cloud_firestore: ^6.0.0

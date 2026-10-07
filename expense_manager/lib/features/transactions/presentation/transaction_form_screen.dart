@@ -16,6 +16,7 @@ import '../../../shared/widgets/money_input.dart';
 import '../../../shared/widgets/motion.dart';
 import '../../import/presentation/receipt_scanner.dart';
 import '../../wallets/application/wallet_cloud.dart' show currentUid;
+import '../../premium/application/usage_ping.dart';
 import '../../wallets/application/wallet_providers.dart';
 import '../../wallets/presentation/wallet_widgets.dart' show walletIcon;
 import '../application/transaction_providers.dart';
@@ -410,6 +411,11 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     try {
       await ref.read(transactionActionsProvider).save(tx);
       if (!mounted) return;
+      if (!_isEditing) {
+        ref.read(usageTrackerProvider).track(
+              _walletId != null ? 'wallet_entry' : (isIncome ? 'income_added' : 'expense_added'),
+            );
+      }
       context.pop();
       if (_isEditing) {
         messenger.showSnackBar(SnackBar(content: Text(savedText)));

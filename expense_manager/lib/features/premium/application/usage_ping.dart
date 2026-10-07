@@ -6,14 +6,59 @@ import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/usage/active_days.dart';
+import '../../../domain/usage/feature_counts.dart';
 import '../../../shared/providers/providers.dart';
 import '../../backup/application/cloud_backup.dart';
+import 'crash_reporting.dart';
 
 const _daysKey = 'usage.active_days';
+const _featuresKey = 'usage.features';
+
+/// Counts feature use on this phone (`usage.features`); the ping sends the
+/// totals. Off Android (tests) it does nothing.
+final usageTrackerProvider = Provider<UsageTracker>(UsageTracker.new);
+
+class UsageTracker {
+  UsageTracker(this._ref);
+
+  final Ref _ref;
+  Future<void> _queue = Future.value();
+
+  /// One more use of [feature] (a fixed name, never user data).
+  void track(String feature) {
+    if (!cloudAvailable) return;
+    // Queued so two quick events never overwrite each other's count.
+    _queue = _queue.then((_) => _bump(feature)).catchError((Object _) {});
+  }
+
+  Future<void> _bump(String feature, [int times = 1]) async {
+    final settings = _ref.read(settingsRepositoryProvider);
+    var counts = parseFeatures(await settings.read(_featuresKey));
+    for (var i = 0; i < times; i++) {
+      counts = bumpFeature(counts, feature);
+    }
+    await settings.write(_featuresKey, encodeFeatures(counts));
+  }
+
+  /// Adds the crash of the last run and the errors caught since the last
+  /// ping, then returns the totals.
+  Future<Map<String, int>> totals() async {
+    if (await crashedLastTime) {
+      crashedLastTime = Future.value(false);
+      await _bump('crash');
+    }
+    final errors = pendingErrors;
+    pendingErrors = 0;
+    if (errors > 0) await _bump('error', errors);
+    await _queue;
+    return parseFeatures(await _ref.read(settingsRepositoryProvider).read(_featuresKey));
+  }
+}
 
 /// Usage numbers for the admin panel (admin_web, "Métricas"): on launch and
 /// when the app returns after 30+ minutes, a signed-in user's row
-/// `users/<uid>` gets `opens + 1` and the last 60 active days. Nothing for
+/// `users/<uid>` gets `opens + 1`, the last 60 active days and the feature
+/// counts (`features`, incl. `crash`/`error`). Nothing for
 /// signed-out users (privacy) and nothing off Android (tests).
 final usagePingProvider = Provider<void>((ref) {
   if (!cloudAvailable) return;
@@ -34,6 +79,7 @@ final usagePingProvider = Provider<void>((ref) {
       await FirebaseFirestore.instance.doc('users/${user.uid}').update({
         'opens': FieldValue.increment(1),
         'activeDays': days,
+        'features': await ref.read(usageTrackerProvider).totals(),
         'lastSeen': FieldValue.serverTimestamp(),
       });
     } on Object {

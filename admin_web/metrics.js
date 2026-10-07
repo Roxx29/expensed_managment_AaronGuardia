@@ -87,3 +87,43 @@ export function computeMetrics(users, { now = new Date(), premiumOf = () => [], 
     })),
   };
 }
+
+const counts = (u) => (u.features && typeof u.features === 'object' ? u.features : null);
+
+/** Most used features: total uses and how many people used each one,
+ *  most people first. `crash`/`error` are stability, not features. */
+export function featureUsage(users) {
+  const out = {};
+  for (const u of users) {
+    for (const [key, n] of Object.entries(counts(u) ?? {})) {
+      if (key === 'crash' || key === 'error' || !Number.isInteger(n) || n <= 0) continue;
+      out[key] ??= { key, uses: 0, users: 0 };
+      out[key].uses += n;
+      out[key].users++;
+    }
+  }
+  return Object.values(out).sort((a, b) => b.users - a.users || b.uses - a.uses);
+}
+
+/** Crashes and errors reported by the app (build 32+), overall and per build. */
+export function stability(users) {
+  const reporting = users.filter((u) => counts(u));
+  const n = (u, k) => (Number.isInteger(counts(u)?.[k]) ? counts(u)[k] : 0);
+  const crashed = reporting.filter((u) => n(u, 'crash') > 0);
+  const perBuild = {};
+  for (const u of reporting) {
+    const b = u.appBuild || '?';
+    perBuild[b] ??= { build: b, users: 0, crashes: 0, errors: 0 };
+    perBuild[b].users++;
+    perBuild[b].crashes += n(u, 'crash');
+    perBuild[b].errors += n(u, 'error');
+  }
+  return {
+    reporting: reporting.length,
+    crashes: reporting.reduce((s, u) => s + n(u, 'crash'), 0),
+    errors: reporting.reduce((s, u) => s + n(u, 'error'), 0),
+    usersWithCrash: crashed.length,
+    crashFree: reporting.length ? Math.round(((reporting.length - crashed.length) / reporting.length) * 1000) / 10 : null,
+    perBuild: Object.values(perBuild).sort((a, b) => String(b.build).localeCompare(String(a.build), undefined, { numeric: true })),
+  };
+}

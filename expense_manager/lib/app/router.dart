@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/l10n/l10n.dart';
 import '../domain/entities/entities.dart';
+import '../domain/usage/feature_counts.dart';
 import '../features/backup/presentation/backup_screen.dart';
 import '../features/assistant/presentation/assistant_screen.dart';
 import '../features/budgets/presentation/budgets_screen.dart';
@@ -12,6 +13,7 @@ import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/import/presentation/import_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/onboarding/welcome_screen.dart';
+import '../features/premium/application/usage_ping.dart';
 import '../features/premium/presentation/paywall_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recurring/presentation/recurring_form_screen.dart';
@@ -33,7 +35,20 @@ import 'routes.dart';
 /// navigation state. Auth/app-lock redirects will hook in here later.
 final routerProvider = Provider<GoRouter>((ref) {
   final router = _buildRouter();
-  ref.onDispose(router.dispose);
+  // Screen opens per feature for the admin panel's "most used features".
+  String? last;
+  void onNavigate() {
+    final feature = featureForPath(router.routerDelegate.currentConfiguration.uri.path);
+    if (feature == null || feature == last) return;
+    last = feature;
+    ref.read(usageTrackerProvider).track(feature);
+  }
+
+  router.routerDelegate.addListener(onNavigate);
+  ref.onDispose(() {
+    router.routerDelegate.removeListener(onNavigate);
+    router.dispose();
+  });
   return router;
 });
 

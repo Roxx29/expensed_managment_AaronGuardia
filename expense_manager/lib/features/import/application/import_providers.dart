@@ -11,6 +11,7 @@ import '../../../domain/import/statement_import.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart' show categoryColors;
 import '../../premium/application/premium_providers.dart';
+import '../../premium/application/usage_ping.dart';
 
 /// App setting: '1' once a free user has used the free import.
 const _freeImportUsedKey = 'import.free_used';
@@ -68,6 +69,7 @@ class ImportActions {
   /// before are skipped because their IDs are deterministic. Uses up the
   /// free import of a free user.
   Future<void> importAll(List<ImportedTransaction> imported) async {
+    _ref.read(usageTrackerProvider).track('csv_import');
     final categories = await _ref.read(categoryRepositoryProvider).watchAll(includeArchived: true).first;
     final idByName = <String, String>{};
     // Archived first, so an active category with the same name wins.
