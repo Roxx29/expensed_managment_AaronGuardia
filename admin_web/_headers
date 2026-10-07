@@ -4,3 +4,11 @@
   Referrer-Policy: no-referrer
   X-Robots-Tag: noindex, nofollow
   Cross-Origin-Opener-Policy: same-origin-allow-popups
+
+# Always revalidate the panel's code (no stale app.js on the custom domain).
+/*.js
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

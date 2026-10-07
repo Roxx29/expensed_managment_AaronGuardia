@@ -5,8 +5,8 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { firebaseConfig, prices } from './config.js';
-import { computeMetrics, featureUsage, stability } from './metrics.js';
+import { firebaseConfig, prices } from './config.js?v=33';
+import { computeMetrics, featureUsage, stability } from './metrics.js?v=33';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
