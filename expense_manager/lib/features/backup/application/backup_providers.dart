@@ -116,15 +116,18 @@ class BackupActions {
   /// Shares transactions of [period] (and [project], see selectForExport) as
   /// a CSV spreadsheet (UTF-8 with BOM so Excel detects the encoding), e.g.
   /// for an accountant. Names are resolved by the caller in the UI language.
+  /// [walletId]: that shared wallet's entries instead of the personal ones.
   Future<void> exportTransactionsCsv({
     required String Function(String? categoryId) categoryName,
     String Function(String? id)? paymentMethodName,
     ExportPeriod period = ExportPeriod.all,
     String? project,
+    String? walletId,
     Rect? origin,
   }) async {
+    final repo = _ref.read(transactionRepositoryProvider);
     final transactions = selectForExport(
-      await _ref.read(transactionRepositoryProvider).watchAll().first,
+      await (walletId == null ? repo.watchAll() : repo.watchWallet(walletId)).first,
       period,
       project,
       _ref.read(clockProvider)(),

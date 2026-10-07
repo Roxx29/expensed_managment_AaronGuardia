@@ -80,8 +80,10 @@ class _DashboardBody extends ConsumerWidget {
     final primary = <Widget>[
       if (ref.watch(announcementProvider).value != null) const _AnnouncementCard(),
       if (ref.watch(cloudBackupReminderProvider)) const _BackupReminderCard(),
+      // A shared main wallet goes above the personal balance.
+      if (ref.watch(mainWalletIdProvider) != null) _WalletsCard(data: data),
       _BalanceCard(data: data),
-      _WalletsCard(data: data),
+      if (ref.watch(mainWalletIdProvider) == null) _WalletsCard(data: data),
       _BudgetCard(data: data),
       if (data.insights.isNotEmpty) _AlertsCard(insights: data.insights),
     ];
@@ -263,7 +265,26 @@ class _WalletsCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final wallets = ref.watch(walletsProvider).value ?? const <Wallet>[];
+    final mainId = ref.watch(mainWalletIdProvider);
+    final all = ref.watch(walletsProvider).value ?? const <Wallet>[];
+    // The main wallet first.
+    final wallets = [...all.where((w) => w.id == mainId), ...all.where((w) => w.id != mainId)];
+    Widget star(bool isMain) => isMain
+        ? Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Icon(Icons.star_rounded, size: 16, color: Brand.yellow, semanticLabel: context.tr('Main wallet')),
+          )
+        : const SizedBox.shrink();
+    Widget title(String text, bool isMain) =>
+        Row(children: [Flexible(child: Text(text, overflow: TextOverflow.ellipsis)), star(isMain)]);
+    final personal = ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.person_rounded),
+      title: title(context.tr('Personal'), mainId == null),
+      subtitle: WalletMonthLine(summary: data.summary),
+      trailing: Text(data.summary.net.format(), style: const TextStyle(fontWeight: FontWeight.w800)),
+      onTap: () => context.go(Routes.transactions),
+    );
     return SectionCard(
       title: context.tr('Wallets'),
       trailing: TextButton(
@@ -272,14 +293,7 @@ class _WalletsCard extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.person_rounded),
-            title: Text(context.tr('Personal')),
-            subtitle: WalletMonthLine(summary: data.summary),
-            trailing: Text(data.summary.net.format(), style: const TextStyle(fontWeight: FontWeight.w800)),
-            onTap: () => context.go(Routes.transactions),
-          ),
+          if (mainId == null) personal,
           for (final w in wallets)
             Consumer(
               builder: (context, ref, _) {
@@ -287,7 +301,7 @@ class _WalletsCard extends ConsumerWidget {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(walletIcon(w.kind)),
-                  title: Text(w.name),
+                  title: title(w.name, w.id == mainId),
                   subtitle: WalletMonthLine(summary: summary),
                   trailing: summary == null
                       ? null
@@ -296,6 +310,7 @@ class _WalletsCard extends ConsumerWidget {
                 );
               },
             ),
+          if (mainId != null) personal,
         ],
       ),
     );

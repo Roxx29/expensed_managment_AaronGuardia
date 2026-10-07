@@ -62,3 +62,47 @@ final walletAutoSyncProvider = Provider<void>((ref) {
   final listener = AppLifecycleListener(onResume: run);
   ref.onDispose(listener.dispose);
 });
+
+/// Setting: the wallet new entries go to and Home shows first ('' or
+/// missing = Personal).
+const mainWalletKey = 'wallets.main';
+
+/// Id of the main shared wallet, or null for Personal (also when the chosen
+/// wallet was left).
+final mainWalletIdProvider = Provider<String?>((ref) {
+  final id = ref.watch(_mainWalletSettingProvider).value ?? '';
+  if (id.isEmpty) return null;
+  return ref.watch(walletByIdProvider(id)) == null ? null : id;
+});
+
+final _mainWalletSettingProvider =
+    StreamProvider<String?>((ref) => ref.watch(settingsRepositoryProvider).watch(mainWalletKey));
+
+/// Monthly spending limit of a wallet on this phone (minor units), null = none.
+// ponytail: kept per phone in settings, not shared with the members; a shared
+// budget needs a wallet column (schema v4), which breaks sync with members on
+// older app versions until everyone updates.
+final walletBudgetProvider = StreamProvider.family<int?, String>(
+  (ref, id) => ref.watch(settingsRepositoryProvider).watch(walletBudgetKey(id)).map((v) => int.tryParse(v ?? '')),
+);
+
+String walletBudgetKey(String walletId) => 'wallet.budget.$walletId';
+
+/// When this phone last synced the wallet (null = never).
+final walletSyncedAtProvider = StreamProvider.family<DateTime?, String>(
+  (ref, id) => ref
+      .watch(settingsRepositoryProvider)
+      .watch(WalletCloud.syncedAtKey(id))
+      .map((v) => v == null ? null : DateTime.tryParse(v)),
+);
+
+/// This month's personal income/expenses (the "Personal" row of Wallets).
+final personalMonthSummaryProvider = Provider<MonthSummary?>((ref) {
+  final transactions = ref.watch(allTransactionsProvider).value;
+  if (transactions == null) return null;
+  return SummaryCalculator.month(
+    transactions: transactions,
+    month: YearMonth.fromDate(ref.watch(clockProvider)()),
+    currency: ref.watch(currencyProvider),
+  );
+});

@@ -16,6 +16,8 @@ import '../../../shared/widgets/money_input.dart';
 import '../../../shared/widgets/motion.dart';
 import '../../import/presentation/receipt_scanner.dart';
 import '../../wallets/application/wallet_cloud.dart' show currentUid;
+import '../../wallets/application/wallet_providers.dart';
+import '../../wallets/presentation/wallet_widgets.dart' show walletIcon;
 import '../application/transaction_providers.dart';
 
 /// Values to prefill a new transaction with (e.g. from a scanned receipt).
@@ -94,6 +96,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   String? _categoryId;
   String? _paymentMethodId;
   String _project = '';
+  String? _walletId;
   bool _saving = false;
 
   bool get _isEditing => widget.initial != null;
@@ -112,6 +115,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     _categoryId = tx?.categoryId;
     _paymentMethodId = tx?.paymentMethodId;
     _project = tx?.project ?? '';
+    // New entries go to the wallet they were opened from, else the main one.
+    _walletId = tx != null ? tx.walletId : (widget.walletId ?? ref.read(mainWalletIdProvider));
   }
 
   @override
@@ -189,6 +194,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                       if (current != null && !current.appliesTo(_type)) _categoryId = null;
                     }),
                   ),
+                if (!_isEditing && editableType) _walletPicker(),
                 if (widget.initial?.recurringItemId case final recurringId?)
                   _RecurringOrigin(recurringItemId: recurringId),
                 const SizedBox(height: 16),
@@ -312,6 +318,33 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     );
   }
 
+  /// Personal or one of the shared wallets (only when there are wallets).
+  Widget _walletPicker() {
+    final wallets = ref.watch(walletsProvider).value ?? const <Wallet>[];
+    if (wallets.isEmpty) return const SizedBox.shrink();
+    Widget chip(String? id, IconData icon, String label) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            avatar: Icon(icon, size: 18),
+            label: Text(label),
+            selected: _walletId == id,
+            onSelected: (_) => setState(() => _walletId = id),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            chip(null, Icons.person_rounded, context.tr('Personal')),
+            for (final w in wallets) chip(w.id, walletIcon(w.kind), w.name),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickDateTime() async {
     final now = DateTime.now();
     final date = await showDatePicker(
@@ -350,8 +383,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       source: isIncome ? _optional(_source) : null,
       notes: _optional(_notes),
       project: _project.trim().isEmpty ? null : _project.trim(),
-      walletId: widget.initial?.walletId ?? widget.walletId,
-      createdBy: widget.initial?.createdBy ?? ((widget.initial?.walletId ?? widget.walletId) == null ? null : currentUid),
+      walletId: _walletId,
+      createdBy: widget.initial?.createdBy ?? (_walletId == null ? null : currentUid),
     );
 
     setState(() => _saving = true);

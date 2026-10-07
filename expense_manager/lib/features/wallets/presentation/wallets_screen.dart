@@ -7,7 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/entities.dart';
+import '../../../domain/finance/summary_calculator.dart';
+import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../backup/application/cloud_backup.dart';
 import '../../premium/presentation/paywall_screen.dart';
@@ -57,7 +60,7 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
 
   Future<void> _create() async {
     if (!_requireAccount() || !requirePremium(context, ref)) return;
-    final result = await showDialog<(String, WalletKind)>(context: context, builder: (_) => const _NewWalletDialog());
+    final result = await showDialog<(String, WalletKind)>(context: context, builder: (_) => const WalletEditDialog());
     if (result == null || !mounted) return;
     await _run(() async {
       final wallet = await ref.read(walletCloudProvider).create(result.$1, result.$2);
@@ -75,9 +78,12 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
     });
   }
 
+  Future<void> _setMain(String id) => ref.read(settingsRepositoryProvider).write(mainWalletKey, id);
+
   @override
   Widget build(BuildContext context) {
     final wallets = ref.watch(walletsProvider).value ?? const <Wallet>[];
+    final mainId = ref.watch(mainWalletIdProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr('Wallets')),
@@ -124,17 +130,31 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                   EmptyState(
                     icon: Icons.account_balance_wallet_outlined,
                     message: context.tr('No shared wallets yet. Create one for your business or family, or join one with an invite code.'),
-                  ),
+                  )
+                else ...[
+                _WalletTile(
+                  icon: Icons.person_rounded,
+                  title: context.tr('Personal'),
+                  summary: ref.watch(personalMonthSummaryProvider),
+                  isMain: mainId == null,
+                  onMain: () => _setMain(''),
+                  onTap: () => context.go(Routes.transactions),
+                ),
                 for (final w in wallets)
-                  Card(
-                    child: ListTile(
-                      leading: Icon(walletIcon(w.kind)),
-                      title: Text(w.name),
-                      subtitle: WalletMonthLine(summary: ref.watch(walletMonthSummaryProvider(w.id))),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push(Routes.wallet(w.id)),
-                    ),
+                  _WalletTile(
+                    icon: walletIcon(w.kind),
+                    title: w.name,
+                    summary: ref.watch(walletMonthSummaryProvider(w.id)),
+                    isMain: mainId == w.id,
+                    onMain: () => _setMain(w.id),
+                    onTap: () => context.push(Routes.wallet(w.id)),
                   ),
+                const SizedBox(height: 8),
+                Text(
+                  context.tr('The star marks your main wallet: Home shows it first and new entries go there.'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                ],
               ],
             ],
           ),
@@ -144,16 +164,20 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
   }
 }
 
-class _NewWalletDialog extends StatefulWidget {
-  const _NewWalletDialog();
+/// Name and type of a new wallet, or of an existing one ([initialName]).
+class WalletEditDialog extends StatefulWidget {
+  const WalletEditDialog({super.key, this.initialName, this.initialKind = WalletKind.business});
+
+  final String? initialName;
+  final WalletKind initialKind;
 
   @override
-  State<_NewWalletDialog> createState() => _NewWalletDialogState();
+  State<WalletEditDialog> createState() => _WalletEditDialogState();
 }
 
-class _NewWalletDialogState extends State<_NewWalletDialog> {
-  final _name = TextEditingController();
-  WalletKind _kind = WalletKind.business;
+class _WalletEditDialogState extends State<WalletEditDialog> {
+  late final _name = TextEditingController(text: widget.initialName ?? '');
+  late WalletKind _kind = widget.initialKind;
 
   @override
   void dispose() {
@@ -169,7 +193,7 @@ class _NewWalletDialogState extends State<_NewWalletDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(context.tr('New wallet')),
+      title: Text(widget.initialName == null ? context.tr('New wallet') : context.tr('Edit wallet')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -196,7 +220,10 @@ class _NewWalletDialogState extends State<_NewWalletDialog> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
-        FilledButton(onPressed: _submit, child: Text(context.tr('Create'))),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(widget.initialName == null ? context.tr('Create') : context.tr('Save')),
+        ),
       ],
     );
   }
@@ -252,6 +279,46 @@ class _JoinDialogState extends State<_JoinDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: Text(context.tr('Cancel'))),
         FilledButton(onPressed: () => Navigator.pop(context, _code.text), child: Text(context.tr('Join'))),
       ],
+    );
+  }
+}
+
+/// A wallet in the list: this month's line, the main-wallet star and open.
+class _WalletTile extends StatelessWidget {
+  const _WalletTile({
+    required this.icon,
+    required this.title,
+    required this.summary,
+    required this.isMain,
+    required this.onMain,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final MonthSummary? summary;
+  final bool isMain;
+  final VoidCallback onMain;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isMain ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+          child: Icon(icon, color: isMain ? scheme.onPrimaryContainer : scheme.onSurfaceVariant),
+        ),
+        title: Text(title, overflow: TextOverflow.ellipsis),
+        subtitle: WalletMonthLine(summary: summary),
+        trailing: IconButton(
+          tooltip: isMain ? context.tr('Main wallet') : context.tr('Make it my main wallet'),
+          icon: Icon(isMain ? Icons.star_rounded : Icons.star_outline_rounded, color: isMain ? Brand.yellow : null),
+          onPressed: isMain ? null : onMain,
+        ),
+        onTap: onTap,
+      ),
     );
   }
 }

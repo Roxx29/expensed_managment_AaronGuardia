@@ -149,6 +149,30 @@ class WalletCloud {
 
   static String _syncedKey(String walletId) => 'wallet.synced.$walletId';
 
+  /// ISO time of this phone's last successful sync of a wallet.
+  static String syncedAtKey(String walletId) => 'wallet.synced_at.$walletId';
+
+  /// New name / kind for [wallet] (any member can change it; the newest
+  /// change wins on every phone).
+  Future<void> edit(Wallet wallet, String name, WalletKind kind) async {
+    await _ref
+        .read(walletRepositoryProvider)
+        .save(Wallet(id: wallet.id, name: name, kind: kind, secret: wallet.secret, ownerUid: wallet.ownerUid));
+    try {
+      await sync(wallet);
+    } on Object {
+      // Saved here; the next sync shares it.
+    }
+  }
+
+  /// The owner removes [uid] from [wallet]. They stop receiving changes, but
+  /// keep what they already downloaded (the key is not rotated).
+  Future<void> removeMember(Wallet wallet, String uid) async {
+    final user = await _signedIn();
+    if (wallet.ownerUid != user.uid || uid == user.uid) throw const InvalidInvite();
+    await _member(wallet.id, uid).delete();
+  }
+
   static String _profileKey(String walletId) => 'wallet.profile.$walletId';
 
   /// Wallet snapshots stay small (they are downloaded on every phone).
@@ -174,7 +198,10 @@ class WalletCloud {
         }
         if (((meta['size'] as num?) ?? 0) > maxSnapshotChars) throw const BackupException(BackupError.tooLarge);
         final before = await codec.walletFingerprint(wallet.id);
-        if (cloudVersion.isNotEmpty && await settings.read(_syncedKey(wallet.id)) == '$cloudVersion|$before') break;
+        if (cloudVersion.isNotEmpty && await settings.read(_syncedKey(wallet.id)) == '$cloudVersion|$before') {
+          await settings.write(syncedAtKey(wallet.id), DateTime.now().toIso8601String());
+          break;
+        }
         ValidatedBackup? remote;
         if (cloudVersion.isNotEmpty) {
           try {
@@ -218,6 +245,7 @@ class WalletCloud {
         }
         final version = result == null || result.remoteChanged ? await _upload(wallet, cloudVersion) : cloudVersion;
         await settings.write(_syncedKey(wallet.id), '$version|$synced');
+        await settings.write(syncedAtKey(wallet.id), DateTime.now().toIso8601String());
         break;
       } on CloudChanged {
         if (attempt >= 3) rethrow;
