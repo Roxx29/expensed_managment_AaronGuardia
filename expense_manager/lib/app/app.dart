@@ -10,6 +10,7 @@ import '../features/premium/application/premium_providers.dart';
 import '../features/recurring/application/recurring_providers.dart';
 import '../features/security/presentation/app_lock_gate.dart';
 import '../features/settings/application/settings_providers.dart';
+import '../features/premium/application/usage_ping.dart';
 import '../features/wallets/application/wallet_providers.dart';
 import '../shared/widgets/monchi_background.dart';
 import 'router.dart';
@@ -28,6 +29,8 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(cloudSyncOnResumeProvider);
     // Shared wallets: entries of the other members on launch and resume.
     ref.watch(walletAutoSyncProvider);
+    // Opens and active days for the admin panel (signed-in users only).
+    ref.watch(usagePingProvider);
     // Keeps payment reminders and budget alerts in sync (no-op when off).
     ref.watch(notificationSyncProvider);
     // Listens for Google Play purchases from launch (none would be missed).

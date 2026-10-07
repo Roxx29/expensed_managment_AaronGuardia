@@ -31,15 +31,26 @@ service cloud.firestore {
 
     // One row per signed-in user, written by the app; `blocked` is admin-only.
     match /users/{uid} {
+      // Usage fields for the panel's metrics (usage_ping.dart): plan name,
+      // app opens (+1 at a time) and the last 60 active days (yyyymmdd).
+      function validUsage() {
+        let d = request.resource.data;
+        return d.get('plan', null) in [null, 'monthly', 'yearly', 'lifetime', 'unknown']
+          && d.get('opens', 0) is int
+          && (d.get('activeDays', []) is list && d.get('activeDays', []).size() <= 60);
+      }
       allow read: if isMe(uid) || isAdmin();
       // Deleting the row would clear `blocked`, so blocked users can't.
       allow delete: if isAdmin() || (isMe(uid) && !resource.data.get('blocked', false));
       allow create: if isMe(uid) && verifiedEmail()
-        && request.resource.data.keys().hasOnly(['email', 'name', 'lastSeen', 'appBuild', 'playPremium', 'createdAt'])
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.keys().hasOnly(['email', 'name', 'lastSeen', 'appBuild', 'playPremium', 'plan', 'createdAt'])
+        && request.resource.data.email == request.auth.token.email
+        && validUsage();
       allow update: if isAdmin() || (isMe(uid) && verifiedEmail()
-        && changed().hasOnly(['email', 'name', 'lastSeen', 'appBuild', 'playPremium'])
-        && request.resource.data.email == request.auth.token.email);
+        && changed().hasOnly(['email', 'name', 'lastSeen', 'appBuild', 'playPremium', 'plan', 'opens', 'activeDays'])
+        && request.resource.data.email == request.auth.token.email
+        && validUsage()
+        && (!('opens' in changed()) || request.resource.data.opens <= resource.data.get('opens', 0) + 1));
     }
 
     // Premium gifted by e-mail (document ID = lower-case e-mail).
@@ -90,7 +101,8 @@ service cloud.firestore {
           && request.resource.data.profile.size() <= 100000
           && request.resource.data.updatedAt == request.time;
       }
-      allow read: if isMember();
+      // Admins read only this metadata (count for the panel); chunks stay members-only.
+      allow read: if isMember() || isAdmin();
       allow create: if signedIn() && !isBlocked(request.auth.uid)
         && request.resource.data.keys().hasOnly(['owner', 'version', 'chunks', 'size', 'updatedAt'])
         && request.resource.data.owner == request.auth.uid

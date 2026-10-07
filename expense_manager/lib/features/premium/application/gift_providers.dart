@@ -24,7 +24,8 @@ final giftPremiumProvider = FutureProvider<Gift?>((ref) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return null;
   // Re-runs when Google Play answers, so the panel's row is right.
-  final playPremium = ref.watch(playPremiumProvider.select((s) => s != null));
+  // Plan name (monthly/yearly/lifetime) for the panel's metrics; null = none.
+  final plan = ref.watch(playPremiumProvider.select((s) => s?.plan.name));
   try {
     final me = _db.doc('users/${user.uid}');
     final snapshot = await me.get();
@@ -34,7 +35,8 @@ final giftPremiumProvider = FutureProvider<Gift?>((ref) async {
       'name': user.displayName,
       'lastSeen': FieldValue.serverTimestamp(),
       'appBuild': _appBuild,
-      'playPremium': playPremium,
+      'playPremium': plan != null,
+      'plan': plan,
       if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true)).catchError((Object _) {}));
     final grant = await _db.doc('grants/${email.toLowerCase()}').get();

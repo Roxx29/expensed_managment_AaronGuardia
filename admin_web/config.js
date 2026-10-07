@@ -8,3 +8,7 @@ export const firebaseConfig = {
   storageBucket: 'monchi-fb5e9.firebasestorage.app',
   appId: '1:699143520703:web:79d63fe66d48ad3059a10a',
 };
+
+// Prices in Play Console (USD), only for the revenue estimate in Resumen.
+// Change them here if you change them in Google Play.
+export const prices = { monthly: 1.99, yearly: 14.99, lifetime: 29.99 };

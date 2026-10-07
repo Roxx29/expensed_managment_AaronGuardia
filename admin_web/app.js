@@ -5,12 +5,14 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { firebaseConfig } from './config.js';
+import { firebaseConfig, prices } from './config.js';
+import { computeMetrics } from './metrics.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const DAY = 86400000;
+const money = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 // ---------- tiny DOM helper: strings always become text (no HTML injection) ----------
 function h(tag, attrs = {}, ...kids) {
@@ -44,7 +46,7 @@ function redemptionUntil(r) {
 const redemptionActive = (r) => r && !r.revoked && (r.days == null || redemptionUntil(r) > new Date());
 
 // ---------- state ----------
-let S = { users: [], grants: {}, redemptions: {}, codes: [], announcement: null, tab: location.hash.slice(1) || 'resumen', q: '' };
+let S = { users: [], grants: {}, redemptions: {}, codes: [], announcement: null, backups: null, wallets: null, tab: location.hash.slice(1) || 'resumen', q: '' };
 
 async function load() {
   const [u, g, r, c, a] = await Promise.all([
@@ -56,6 +58,9 @@ async function load() {
   S.redemptions = Object.fromEntries(r.docs.map((d) => [d.id, d.data()]));
   S.codes = c.docs.map((d) => ({ id: d.id, ...d.data() }));
   S.announcement = a.exists() ? a.data() : null;
+  // Feature adoption; null (shown as —) if the rules don't allow it yet.
+  const count = async (name) => { try { return (await getDocs(collection(db, name))).size; } catch { return null; } };
+  [S.backups, S.wallets] = await Promise.all([count('backups'), count('wallets')]);
 }
 function premiumOf(u) {
   const out = [];
@@ -77,7 +82,7 @@ function login(message) {
   )));
 }
 
-const TABS = [['resumen', 'Resumen'], ['usuarios', 'Usuarios'], ['regalos', 'Premium regalado'], ['codigos', 'Códigos'], ['anuncio', 'Anuncio']];
+const TABS = [['resumen', 'Métricas'], ['usuarios', 'Usuarios'], ['regalos', 'Premium regalado'], ['codigos', 'Códigos'], ['anuncio', 'Anuncio']];
 function render() {
   const nav = h('nav', {}, TABS.map(([id, name]) => h('button', { class: S.tab === id ? 'on' : '', onclick: () => { S.tab = id; location.hash = id; render(); } }, name)));
   const body = { resumen, usuarios, regalos, codigos, anuncio }[S.tab]?.() ?? resumen();
@@ -90,33 +95,85 @@ function render() {
   );
 }
 
+/** Column chart: one bar per point, value on hover/focus, labels below. */
+function columns(points, label, { every = 1, valueLabels = false } = {}) {
+  const max = Math.max(1, ...points.map((p) => p.n));
+  const peak = points.reduce((a, p, i) => (p.n > points[a].n ? i : a), 0);
+  return [
+    h('div', { class: 'bars', role: 'img', 'aria-label': points.map((p) => `${label(p.date)}: ${p.n}`).join(', ') },
+      points.map((p, i) => h('div', { class: 'bar', tabindex: 0 },
+        // Direct labels only where they help: every bar when few, else the peak and the last one.
+        valueLabels || ((i === peak || i === points.length - 1) && p.n) ? h('span', { class: 'v' }, p.n) : null,
+        h('i', { style: `height:${(p.n / max) * 100}%` }),
+        h('span', { class: 'tip' }, `${label(p.date)}: ${p.n}`)))),
+    h('div', { class: 'axis' }, points.map((p, i) => h('span', {}, i % every === 0 || i === points.length - 1 ? label(p.date, true) : ''))),
+  ];
+}
+
+/** Horizontal bars with the value at the end (plans, app versions). */
+function hbars(rows) {
+  const max = Math.max(1, ...rows.map(([, n]) => n));
+  return rows.map(([name, n]) => h('div', { class: 'hbar' },
+    h('span', {}, name), h('div', { class: 'track' }, h('i', { style: `width:${(n / max) * 100}%` })), h('b', {}, n)));
+}
+
 function resumen() {
-  const now = Date.now();
-  const p = S.users.map(premiumOf);
-  const stat = (n, label) => h('div', { class: 'stat' }, h('b', {}, n), h('span', {}, label));
-  const months = [...Array(6)].map((_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 5 + i); return d; });
-  const perMonth = months.map((m) => S.users.filter((u) => { const c = date(u.createdAt); return c && c.getFullYear() === m.getFullYear() && c.getMonth() === m.getMonth(); }).length);
-  const max = Math.max(1, ...perMonth);
+  const m = computeMetrics(S.users, { premiumOf, prices });
+  const pct = (v) => (v == null ? '—' : `${v} %`);
+  const stat = (value, label, note) => h('div', { class: 'stat' }, h('b', {}, value ?? '—'), h('span', {}, label), note ? h('small', {}, note) : null);
+  const day = (d, short) => d.toLocaleDateString('es', short ? { day: 'numeric' } : { weekday: 'short', day: 'numeric', month: 'short' });
+  const month = (d, short) => d.toLocaleDateString('es', short ? { month: 'short' } : { month: 'long', year: 'numeric' });
   const builds = {};
   for (const u of S.users) builds[u.appBuild || '?'] = (builds[u.appBuild || '?'] || 0) + 1;
   return [
+    h('div', { class: 'section' }, 'Usuarios'),
     h('div', { class: 'grid' },
-      stat(S.users.length, 'Usuarios con cuenta'),
-      stat(S.users.filter((u) => (date(u.lastSeen)?.getTime() ?? 0) > now - 30 * DAY).length, 'Activos (30 días)'),
-      stat(p.filter((x) => x.length).length, 'Con Premium'),
-      stat(p.filter((x) => x.includes('play')).length, 'Pagan en Google Play (según la app)'),
-      stat(p.filter((x) => x.includes('gift')).length, 'Premium regalado'),
-      stat(p.filter((x) => x.includes('code')).length, 'Con código'),
-      stat(S.users.filter((u) => u.blocked).length, 'Bloqueados'),
-    ),
-    h('div', { class: 'card', style: 'margin-top:16px' }, h('h2', {}, 'Altas por mes'),
-      h('div', { class: 'bars' }, months.map((m, i) => h('div', { class: 'bar' },
-        h('span', {}, perMonth[i]), h('i', { style: `height:${(perMonth[i] / max) * 100}px` }),
-        h('span', {}, m.toLocaleDateString('es', { month: 'short' })))))),
-    h('div', { class: 'card' }, h('h2', {}, 'Versión de la app (build)'),
-      Object.entries(builds).sort((a, b) => String(b[0]).localeCompare(String(a[0]), undefined, { numeric: true }))
-        .map(([b, n]) => h('span', { class: 'chip' }, `build ${b}: ${n}`))),
-    h('p', { class: 'muted' }, 'Solo aparecen quienes iniciaron sesión con Google en la app. Monchi no registra a los demás (privacidad).'),
+      stat(m.total, 'Usuarios con cuenta'),
+      stat(m.newToday, 'Nuevos hoy'),
+      stat(m.new7, 'Nuevos (7 días)'),
+      stat(m.new30, 'Nuevos (30 días)'),
+      stat(pct(m.retention), 'Vuelven después de una semana', m.cohort ? `de ${m.cohort} que se registraron hace 8–37 días` : 'aún no hay datos'),
+      stat(m.blocked, 'Bloqueados')),
+    h('div', { class: 'section' }, 'Uso de la app'),
+    h('div', { class: 'grid' },
+      stat(m.dau, 'Activos hoy'),
+      stat(m.wau, 'Activos (7 días)'),
+      stat(m.mau, 'Activos (30 días)'),
+      stat(pct(m.stickiness), 'Fidelidad (hoy ÷ 30 días)', 'más alto = la usan a diario'),
+      stat(m.opens.toLocaleString('es'), 'Veces que se abrió la app', 'desde la build 31'),
+      stat(m.avgOpens, 'Aperturas por usuario')),
+    h('div', { class: 'section' }, 'Dinero'),
+    h('div', { class: 'grid' },
+      stat(m.paying, 'Pagan en Google Play'),
+      stat(m.plans.lifetime, 'De por vida'),
+      stat(m.plans.yearly, 'Anual'),
+      stat(m.plans.monthly, 'Mensual'),
+      stat(pct(m.conversion), 'Conversión a pago', 'pagan ÷ usuarios con cuenta'),
+      stat(money(m.mrr), 'Ingreso mensual recurrente (estimado)', 'mensual + anual ÷ 12, precio de lista'),
+      stat(money(m.lifetimeRevenue), 'Ventas de por vida (estimado)'),
+      stat(m.premium, 'Con Premium (cualquier forma)', `${m.gift} regalado · ${m.code} con código`)),
+    h('div', { class: 'section' }, 'Funciones'),
+    h('div', { class: 'grid' },
+      stat(S.backups, 'Con copia en la nube'),
+      stat(S.wallets, 'Carteras compartidas creadas')),
+    h('div', { class: 'section' }, 'Tendencias'),
+    h('div', { class: 'cols' },
+      h('div', { class: 'card' }, h('h2', {}, 'Usuarios activos por día'), h('p', { class: 'sub' }, 'Últimos 30 días'),
+        columns(m.activePerDay, day, { every: 5 })),
+      h('div', { class: 'card' }, h('h2', {}, 'Usuarios nuevos por día'), h('p', { class: 'sub' }, 'Últimos 30 días'),
+        columns(m.newPerDay, day, { every: 5 })),
+      h('div', { class: 'card' }, h('h2', {}, 'Altas por mes'), h('p', { class: 'sub' }, 'Últimos 12 meses'),
+        columns(m.signupsPerMonth, month, { valueLabels: true })),
+      h('div', { class: 'card' }, h('h2', {}, 'Planes de pago'), h('p', { class: 'sub' }, 'Compras en Google Play según la app'),
+        hbars([['De por vida', m.plans.lifetime], ['Anual', m.plans.yearly], ['Mensual', m.plans.monthly],
+          ...(m.plans.unknown ? [['Sin dato (app vieja)', m.plans.unknown]] : [])])),
+      h('div', { class: 'card' }, h('h2', {}, 'Versión de la app'), h('p', { class: 'sub' }, 'Build instalada por usuario'),
+        hbars(Object.entries(builds).sort((a, b) => String(b[0]).localeCompare(String(a[0]), undefined, { numeric: true })).slice(0, 8)
+          .map(([b, n]) => [`build ${b}`, n])))),
+    h('p', { class: 'muted', style: 'margin-top:22px' },
+      'Solo cuentan quienes iniciaron sesión con Google en la app (Monchi no registra a los demás, por privacidad). ',
+      'Aperturas, días activos y plan llegan desde la build 31; las builds anteriores solo informan la última visita. ',
+      'Los pagos los informa la app (no verificados con Google): las cifras reales están en Play Console › Informes financieros.'),
   ];
 }
 
