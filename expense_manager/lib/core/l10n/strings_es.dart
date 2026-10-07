@@ -2,7 +2,18 @@
 
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
+  'Could not read the receipt. The first time, the phone may need a minute to download the text reader. Try again.': 'No se pudo leer el recibo. La primera vez, el teléfono puede tardar un minuto en descargar el lector de texto. Inténtalo de nuevo.',
+  // More screen sections.
+  'Your money': 'Tu dinero',
+  'Planning': 'Planificación',
+  'Tools': 'Herramientas',
+  'Data & security': 'Datos y seguridad',
+  'App': 'App',
+  'Your profile': 'Tu perfil',
   // Shared wallets (Carteras).
+  'You are no longer a member of this wallet. You can leave it.': 'Ya no eres miembro de esta cartera. Puedes salir de ella.',
+  'Only the owner of the wallet can do this.': 'Solo el dueño de la cartera puede hacer esto.',
+  'Balance of the month': 'Balance del mes',
   'Change': 'Cambiar',
   'Copy invite code': 'Copiar código de invitación',
   'Edit wallet': 'Editar cartera',
@@ -285,7 +296,6 @@ const esStrings = <String, String>{
   'Could not load your data. Please restart the app.': 'No se pudieron cargar tus datos. Reinicia la app.',
   'Could not load your profile.': 'No se pudo cargar tu perfil.',
   'Could not load.': 'No se pudo cargar.',
-  'Could not read the receipt on this device.': 'No se pudo leer el recibo en este dispositivo.',
   'Could not save the profile.': 'No se pudo guardar el perfil.',
   'Could not save. Please check the values.': 'No se pudo guardar. Revisa los valores.',
   'Could not update the photo.': 'No se pudo actualizar la foto.',

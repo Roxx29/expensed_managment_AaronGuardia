@@ -48,6 +48,10 @@ abstract interface class WalletRepository {
 
   /// Soft delete ("Leave wallet"); its entries stay hidden in the database.
   Future<void> delete(String id);
+
+  /// Sets the owner from the cloud (the only trusted source) without
+  /// touching `updatedAt`, so it never wins or triggers a sync by itself.
+  Future<void> setOwner(String id, String ownerUid);
 }
 
 abstract interface class CategoryRepository {

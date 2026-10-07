@@ -58,6 +58,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final done = context.tr('Wallet up to date');
     try {
       await ref.read(walletCloudProvider).sync(wallet);
+      if (!mounted) return;
       ref.invalidate(walletMembersProvider(wallet.id));
       if (!quiet) messenger.showSnackBar(SnackBar(content: Text(done)));
     } on Object catch (e) {
@@ -147,12 +148,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       context: context,
       builder: (_) => _BudgetDialog(
         currency: currency,
-        initial: current == null ? '' : Money(current, currency).toDecimalString(),
+        initial: current == null || current.currency != currency ? '' : current.toDecimalString(),
       ),
     );
     if (result == null || !mounted) return;
-    final minor = result.isEmpty ? null : Money.tryParse(result, currency)?.minor;
-    await ref.read(settingsRepositoryProvider).write(walletBudgetKey(wallet.id), minor == null ? '' : '$minor');
+    final amount = result.isEmpty ? null : Money.tryParse(result, currency);
+    await ref
+        .read(settingsRepositoryProvider)
+        .write(walletBudgetKey(wallet.id), amount == null ? '' : '${amount.minor}|${currency.code}');
   }
 
   Future<void> _setMain(Wallet wallet, bool isMain) async {
@@ -243,7 +246,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     if (!ok || !mounted) return;
     await _run(() async {
       await ref.read(walletCloudProvider).removeMember(wallet, member.uid);
-      ref.invalidate(walletMembersProvider(wallet.id));
+      if (mounted) ref.invalidate(walletMembersProvider(wallet.id));
     });
   }
 
@@ -426,7 +429,9 @@ class _SummaryTab extends ConsumerWidget {
     final summary = comparison.current;
     final byMember = WalletStats.byMember(entries, month, currency);
     final year = StatisticsCalculator.year(transactions: entries, year: month.year, currency: currency, today: today);
-    final budgetMinor = ref.watch(walletBudgetProvider(wallet.id)).value;
+    // A budget saved in another currency doesn't apply (amounts aren't converted).
+    final budget = ref.watch(walletBudgetProvider(wallet.id)).value;
+    final budgetMinor = budget != null && budget.currency == currency ? budget.minor : null;
     final syncedAt = ref.watch(walletSyncedAtProvider(wallet.id)).value;
     final monthName = DateFormat.MMMM(context.lang);
     final finance = FinanceColors.of(context);
@@ -614,7 +619,12 @@ class _MonthCard extends StatelessWidget {
               summary.net.format(),
               style: theme.textTheme.headlineMedium?.copyWith(color: on, fontWeight: FontWeight.w800),
             ),
-            Text(context.tr('Left this month'), style: small),
+            Text(
+              summary.month == YearMonth.fromDate(DateTime.now())
+                  ? context.tr('Left this month')
+                  : context.tr('Balance of the month'),
+              style: small,
+            ),
             const SizedBox(height: 8),
             WalletMonthLine(summary: summary),
             if (change != null) ...[
@@ -692,7 +702,11 @@ class _HistoryTab extends ConsumerStatefulWidget {
   ConsumerState<_HistoryTab> createState() => _HistoryTabState();
 }
 
-class _HistoryTabState extends ConsumerState<_HistoryTab> {
+// Kept alive so the search and filters survive switching tabs.
+class _HistoryTabState extends ConsumerState<_HistoryTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _search = TextEditingController();
   TransactionType? _type;
   String _member = '';
@@ -705,18 +719,21 @@ class _HistoryTabState extends ConsumerState<_HistoryTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final categories = ref.watch(categoryByIdProvider);
     final finance = FinanceColors.of(context);
     String categoryName(String? id) => categories[id]?.label(context) ?? context.tr('Uncategorized');
+    // Authors who appear in this wallet's entries, for the member chips.
+    final authors = {for (final t in widget.entries) if (t.createdBy != null) t.createdBy!}.toList();
+    // A filter on someone whose chip is gone (only one author left) is dropped.
+    final member = authors.length > 1 && authors.contains(_member) ? _member : '';
     final filtered = WalletStats.filter(
       widget.entries,
       type: _type,
-      member: _member,
+      member: member,
       query: _search.text,
       categoryName: categoryName,
     );
-    // Authors who appear in this wallet's entries, for the member chips.
-    final authors = {for (final t in widget.entries) if (t.createdBy != null) t.createdBy!}.toList();
     final monthFormat = DateFormat.yMMMM(context.lang);
     final rows = <Object>[];
     String? lastMonth;
@@ -783,7 +800,7 @@ class _HistoryTabState extends ConsumerState<_HistoryTab> {
                                   radius: 12,
                                 ),
                                 label: Text(widget.nameOf(uid)),
-                                selected: _member == uid,
+                                selected: member == uid,
                                 onSelected: (on) => setState(() => _member = on ? uid : ''),
                               ),
                             ),

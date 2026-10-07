@@ -56,7 +56,7 @@ class MonchiBackground extends StatelessWidget {
                   ? const StaticMonchiBackground()
                   : AnimatedMonchiBackground(duration: animationDuration),
         ),
-        if (child case final c?) c,
+        ?child,
       ],
     );
   }

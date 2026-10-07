@@ -44,6 +44,16 @@ class InvalidInvite implements Exception {
   const InvalidInvite();
 }
 
+/// The owner removed this account from the wallet (or it was deleted).
+class RemovedFromWallet implements Exception {
+  const RemovedFromWallet();
+}
+
+/// Only the wallet's owner can do this.
+class NotWalletOwner implements Exception {
+  const NotWalletOwner();
+}
+
 /// The signed-in account (null when signed out, or when the cloud is
 /// unavailable, e.g. in tests).
 String? get currentUid {
@@ -166,11 +176,25 @@ class WalletCloud {
   }
 
   /// The owner removes [uid] from [wallet]. They stop receiving changes, but
-  /// keep what they already downloaded (the key is not rotated).
+  /// keep what they already downloaded (the key is not rotated). A
+  /// `removed/<uid>` marker stops them rejoining with an old invite code.
+  // ponytail: no "allow back" button; the owner can't re-admit a removed
+  // member (delete removed/<uid> in the console). Add when someone asks.
   Future<void> removeMember(Wallet wallet, String uid) async {
     final user = await _signedIn();
-    if (wallet.ownerUid != user.uid || uid == user.uid) throw const InvalidInvite();
+    // The server's owner, not the local row (members can write that).
+    final owner = (await _meta(wallet.id).get()).data()?['owner'];
+    if (owner != user.uid || uid == user.uid) throw const NotWalletOwner();
+    final invite = (await _member(wallet.id, uid).get()).data()?['invite'];
+    await _db.doc('wallets/${wallet.id}/removed/$uid').set({'at': FieldValue.serverTimestamp()});
     await _member(wallet.id, uid).delete();
+    if (invite is String && invite.length == 22) {
+      try {
+        await _db.doc('invites/$invite').delete();
+      } on FirebaseException {
+        // Already gone; the marker keeps them out anyway.
+      }
+    }
   }
 
   static String _profileKey(String walletId) => 'wallet.profile.$walletId';
@@ -189,8 +213,21 @@ class WalletCloud {
     final settings = _ref.read(settingsRepositoryProvider);
     for (var attempt = 1;; attempt++) {
       try {
-        final meta = (await _meta(wallet.id).get()).data();
-        if (meta == null) throw const InvalidInvite(); // deleted in the cloud
+        final Map<String, dynamic>? meta;
+        try {
+          meta = (await _meta(wallet.id).get()).data();
+        } on FirebaseException catch (e) {
+          // Not a member any more: the owner removed this account.
+          if (e.code == 'permission-denied') throw const RemovedFromWallet();
+          rethrow;
+        }
+        if (meta == null) throw const RemovedFromWallet(); // deleted in the cloud
+        // The owner field can't be changed in Firestore: trust it over the
+        // wallet row, which any member can write.
+        final owner = meta['owner'];
+        if (owner is String && owner != wallet.ownerUid) {
+          await _ref.read(walletRepositoryProvider).setOwner(wallet.id, owner);
+        }
         final cloudVersion = '${meta['version'] ?? ''}';
         // Any member can write the metadata: never trust its shape.
         if (cloudVersion.isNotEmpty && !_version.hasMatch(cloudVersion)) {
@@ -240,6 +277,7 @@ class WalletCloud {
             wallet.id,
             secret: wallet.secret,
             expectFingerprint: before,
+            owner: owner is String ? owner : null,
           );
           synced = await codec.walletFingerprint(wallet.id);
         }

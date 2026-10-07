@@ -97,6 +97,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   String? _paymentMethodId;
   String _project = '';
   String? _walletId;
+  // False until a wallet is known: then a new entry follows the main wallet.
+  bool _walletChosen = false;
   bool _saving = false;
 
   bool get _isEditing => widget.initial != null;
@@ -115,8 +117,13 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     _categoryId = tx?.categoryId;
     _paymentMethodId = tx?.paymentMethodId;
     _project = tx?.project ?? '';
-    // New entries go to the wallet they were opened from, else the main one.
-    _walletId = tx != null ? tx.walletId : (widget.walletId ?? ref.read(mainWalletIdProvider));
+    // New entries go to the wallet they were opened from ('' = Personal),
+    // else to the main wallet (resolved in build, it may still be loading).
+    final opened = widget.walletId;
+    if (tx != null || opened != null) {
+      _walletId = tx != null ? tx.walletId : (opened!.isEmpty ? null : opened);
+      _walletChosen = true;
+    }
   }
 
   @override
@@ -131,6 +138,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   @override
   Widget build(BuildContext context) {
     final Currency currency = widget.initial?.amount.currency ?? ref.watch(currencyProvider);
+    if (!_walletChosen) _walletId = ref.watch(mainWalletIdProvider);
     final categories = (ref.watch(categoriesProvider).value ?? const <FinanceCategory>[])
         .where((c) => c.appliesTo(_type))
         .toList();
@@ -152,7 +160,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       appBar: AppBar(
         title: Text(_isEditing ? context.tr('Edit transaction') : context.tr('New transaction')),
         actions: [
-          if (!_isEditing) const ScanReceiptButton(),
+          if (!_isEditing) ScanReceiptButton(walletId: _walletId ?? ''),
           if (_isEditing)
             IconButton(
               tooltip: context.tr('Delete'),
@@ -328,7 +336,10 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
             avatar: Icon(icon, size: 18),
             label: Text(label),
             selected: _walletId == id,
-            onSelected: (_) => setState(() => _walletId = id),
+            onSelected: (_) => setState(() {
+              _walletId = id;
+              _walletChosen = true;
+            }),
           ),
         );
     return Padding(

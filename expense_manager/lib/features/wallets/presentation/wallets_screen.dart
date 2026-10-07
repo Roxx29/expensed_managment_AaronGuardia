@@ -22,6 +22,8 @@ import 'wallet_widgets.dart';
 String walletErrorMessage(BuildContext context, Object error) => switch (error) {
       NotSignedIn() => context.tr('Sign in to use shared wallets.'),
       InvalidInvite() => context.tr('This invite code is not valid or the wallet no longer exists.'),
+      RemovedFromWallet() => context.tr('You are no longer a member of this wallet. You can leave it.'),
+      NotWalletOwner() => context.tr('Only the owner of the wallet can do this.'),
       FirebaseException(code: 'permission-denied') =>
         context.tr('This invite code is not valid or the wallet no longer exists.'),
       _ => context.tr('Could not connect to the cloud. Check your internet connection and try again.'),

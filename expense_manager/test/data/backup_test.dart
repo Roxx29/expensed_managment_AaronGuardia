@@ -276,9 +276,19 @@ void main() {
         ..add({...shared, 'id': 'intruder', 'walletId': null})
         ..add({...shared, 'id': 'new', 'categoryId': 'cat_missing'});
       ((data['categories'] as List<dynamic>).single as Map<String, dynamic>)['name'] = 'Hacked';
+      // ...and a member claiming to own the wallet.
+      ((data['wallets'] as List<dynamic>).single as Map<String, dynamic>)['ownerUid'] = 'attacker';
       json['sha256'] = _sha(data);
       final remote = scopeToWallet(BackupCodec.parse(jsonEncode(json)), 'w1');
-      await codec.applyWallet(remote, 'w1', secret: 'k', expectFingerprint: await codec.walletFingerprint('w1'));
+      await codec.applyWallet(
+        remote,
+        'w1',
+        secret: 'k',
+        expectFingerprint: await codec.walletFingerprint('w1'),
+        owner: 'real-owner',
+      );
+      final wallet = await (db.select(db.wallets)..where((w) => w.id.equals('w1'))).getSingle();
+      expect(wallet.ownerUid, 'real-owner');
 
       expect(await transactions.getById('intruder'), isNull);
       final added = await transactions.getById('new');

@@ -75,6 +75,14 @@ flutter {
     source = "../.."
 }
 
+// Receipt scanning: use the text reader from Google Play services (the phone
+// downloads it once) instead of bundling the ~4 MB model in every APK. Same
+// API, so the google_mlkit_text_recognition plugin works unchanged.
+configurations.all {
+    exclude(group = "com.google.mlkit", module = "text-recognition")
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 }

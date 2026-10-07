@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/money/currency.dart';
+import '../../../core/money/money.dart';
 import '../../../core/time/year_month.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/finance/summary_calculator.dart';
@@ -78,12 +80,18 @@ final mainWalletIdProvider = Provider<String?>((ref) {
 final _mainWalletSettingProvider =
     StreamProvider<String?>((ref) => ref.watch(settingsRepositoryProvider).watch(mainWalletKey));
 
-/// Monthly spending limit of a wallet on this phone (minor units), null = none.
+/// Monthly spending limit of a wallet on this phone, null = none.
 // ponytail: kept per phone in settings, not shared with the members; a shared
 // budget needs a wallet column (schema v4), which breaks sync with members on
 // older app versions until everyone updates.
-final walletBudgetProvider = StreamProvider.family<int?, String>(
-  (ref, id) => ref.watch(settingsRepositoryProvider).watch(walletBudgetKey(id)).map((v) => int.tryParse(v ?? '')),
+/// Stored as `<minor>|<currency code>`.
+final walletBudgetProvider = StreamProvider.family<Money?, String>(
+  (ref, id) => ref.watch(settingsRepositoryProvider).watch(walletBudgetKey(id)).map((v) {
+    final parts = (v ?? '').split('|');
+    final minor = int.tryParse(parts.first);
+    final currency = parts.length == 2 ? Currency.values.where((c) => c.code == parts[1]).firstOrNull : null;
+    return minor == null || currency == null ? null : Money(minor, currency);
+  }),
 );
 
 String walletBudgetKey(String walletId) => 'wallet.budget.$walletId';

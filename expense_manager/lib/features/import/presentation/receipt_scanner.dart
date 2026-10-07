@@ -42,7 +42,7 @@ Future<TransactionDraft?> scanReceipt(BuildContext context, Currency currency, {
   if (source == null || !context.mounted) return null;
   final messenger = ScaffoldMessenger.of(context);
   final nothingText = context.tr('No total, date or store found. Try a clearer photo.');
-  final failedText = context.tr('Could not read the receipt on this device.');
+  final failedText = context.tr('Could not read the receipt. The first time, the phone may need a minute to download the text reader. Try again.');
 
   final XFile? image;
   try {
@@ -85,7 +85,10 @@ Future<TransactionDraft?> scanReceipt(BuildContext context, Currency currency, {
 /// App-bar action for the new-transaction form: scans a receipt and reopens
 /// the form prefilled.
 class ScanReceiptButton extends ConsumerWidget {
-  const ScanReceiptButton({super.key});
+  const ScanReceiptButton({super.key, this.walletId = ''});
+
+  /// Wallet of the form being replaced ('' = Personal), kept for the new one.
+  final String walletId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => IconButton(
@@ -99,7 +102,7 @@ class ScanReceiptButton extends ConsumerWidget {
             preferMonthFirst: ref.read(profileProvider).value?.countryCode == 'US',
           );
           if (draft == null || !context.mounted) return;
-          context.pushReplacement(Routes.newTransaction, extra: draft);
+          context.pushReplacement(Routes.newWalletTransaction(walletId), extra: draft);
         },
       );
 }

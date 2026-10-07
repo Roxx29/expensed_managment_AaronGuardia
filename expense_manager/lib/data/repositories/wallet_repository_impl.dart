@@ -40,6 +40,10 @@ class DriftWalletRepository implements WalletRepository {
         .write(WalletsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
   }
 
+  @override
+  Future<void> setOwner(String id, String ownerUid) =>
+      (_db.update(_db.wallets)..where((w) => w.id.equals(id))).write(WalletsCompanion(ownerUid: Value(ownerUid)));
+
   static Wallet toEntity(WalletRecord r) =>
       Wallet(id: r.id, name: r.name, kind: r.kind, secret: r.secret, ownerUid: r.ownerUid);
 }

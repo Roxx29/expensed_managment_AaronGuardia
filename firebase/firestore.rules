@@ -119,6 +119,7 @@ service cloud.firestore {
         allow read: if isMember();
         allow delete: if isMe(uid) || get(/databases/$(database)/documents/wallets/$(wid)).data.owner == request.auth.uid;
         allow create: if isMe(uid) && !isBlocked(uid)
+          && !exists(/databases/$(database)/documents/wallets/$(wid)/removed/$(uid))
           && request.resource.data.keys().hasOnly(['invite', 'profile', 'updatedAt'])
           && validProfile()
           && (get(/databases/$(database)/documents/wallets/$(wid)).data.owner == uid
@@ -127,6 +128,12 @@ service cloud.firestore {
               && invite().walletId == wid
               && request.time < invite().createdAt + duration.value(7, 'd')));
         allow update: if isMe(uid) && !isBlocked(uid) && changed().hasOnly(['profile', 'updatedAt']) && validProfile();
+      }
+
+      // Members the owner removed: they can't rejoin with an old invite.
+      match /removed/{uid} {
+        allow read: if isMember();
+        allow create, delete: if get(/databases/$(database)/documents/wallets/$(wid)).data.owner == request.auth.uid;
       }
     }
 

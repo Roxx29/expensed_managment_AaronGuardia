@@ -317,12 +317,14 @@ class BackupCodec {
   /// touching anything personal: only rows of [walletId] are written, the
   /// wallet keeps this phone's [secret], categories and payment methods are
   /// only added when missing (a member's renames never change mine), and a
-  /// reference to an unknown one is cleared instead of failing.
+  /// reference to an unknown one is cleared instead of failing. [owner]:
+  /// the wallet's owner as the cloud metadata says (members can't change it).
   Future<void> applyWallet(
     ValidatedBackup merged,
     String walletId, {
     required String secret,
     required String expectFingerprint,
+    String? owner,
   }) async {
     try {
       await _db.transaction(() async {
@@ -376,7 +378,10 @@ class BackupCodec {
           ]);
           b.insertAllOnConflictUpdate(_db.wallets, [
             for (final w in merged.wallets)
-              if (w.id == walletId) w.copyWith(secret: secret, deletedAt: const Value(null)),
+              // The owner comes from the cloud metadata ([owner]), never from
+              // a member's snapshot.
+              if (w.id == walletId)
+                w.copyWith(secret: secret, ownerUid: owner == null ? Value(w.ownerUid) : Value(owner), deletedAt: const Value(null)),
           ]);
         });
         if ((await _db.customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {

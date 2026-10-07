@@ -91,10 +91,19 @@ jobs:
 
       - name: Build APK and App Bundle
         run: |
+          # Debug symbols go to build/symbols (uploaded as an artifact, needed
+          # only to read crash stack traces), which makes the app smaller.
           ARGS="--release --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }}"
-          flutter build apk $ARGS
+          # One CPU type per APK instead of three: about a third of the size.
+          # ExpenseManager.apk = 64-bit ARM (almost every phone since 2017);
+          # ExpenseManager-32bit.apk for old phones. Same version code in both.
+          flutter build apk $ARGS --split-debug-info=build/symbols/apk-arm64 --target-platform android-arm64
           cp build/app/outputs/flutter-apk/app-release.apk ExpenseManager.apk
-          flutter build appbundle $ARGS
+          flutter build apk $ARGS --split-debug-info=build/symbols/apk-arm --target-platform android-arm
+          cp build/app/outputs/flutter-apk/app-release.apk ExpenseManager-32bit.apk
+          ls -l ExpenseManager*.apk >> "$GITHUB_STEP_SUMMARY"
+          # Google Play builds per-phone downloads from the bundle by itself.
+          flutter build appbundle $ARGS --split-debug-info=build/symbols/aab
           cp build/app/outputs/bundle/release/app-release.aab Monchi.aab
 
       - name: Remove signing files
@@ -106,7 +115,9 @@ jobs:
           name: Monchi-builds
           path: |
             expense_manager/ExpenseManager.apk
+            expense_manager/ExpenseManager-32bit.apk
             expense_manager/Monchi.aab
+            expense_manager/build/symbols
 
       - name: Publish release
         # Branch runs (manual "Run workflow") only check the build.
@@ -119,8 +130,10 @@ jobs:
           make_latest: true
           files: |
             expense_manager/ExpenseManager.apk
+            expense_manager/ExpenseManager-32bit.apk
             expense_manager/Monchi.aab
           body: |
             Download **ExpenseManager.apk**, open it on your Android phone and allow "install unknown apps".
+            Very old phone (32-bit) and it says "app not installed"? Use **ExpenseManager-32bit.apk**.
             **Monchi.aab** is for Google Play Console (Internal testing → Create new release → upload).
             Commit: ${{ github.sha }}

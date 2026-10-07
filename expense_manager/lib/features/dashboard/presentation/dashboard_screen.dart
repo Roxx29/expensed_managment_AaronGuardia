@@ -77,20 +77,23 @@ class _DashboardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Phones show primary then secondary: what people check most comes first
+    // (balance, budget, alerts, latest entries), details after.
+    final mainIsWallet = ref.watch(mainWalletIdProvider) != null;
     final primary = <Widget>[
       if (ref.watch(announcementProvider).value != null) const _AnnouncementCard(),
       if (ref.watch(cloudBackupReminderProvider)) const _BackupReminderCard(),
       // A shared main wallet goes above the personal balance.
-      if (ref.watch(mainWalletIdProvider) != null) _WalletsCard(data: data),
+      if (mainIsWallet) _WalletsCard(data: data),
       _BalanceCard(data: data),
-      if (ref.watch(mainWalletIdProvider) == null) _WalletsCard(data: data),
       _BudgetCard(data: data),
       if (data.insights.isNotEmpty) _AlertsCard(insights: data.insights),
+      const _RecentTransactionsCard(),
     ];
     final secondary = <Widget>[
-      _TopCategoriesCard(data: data),
+      if (!mainIsWallet) _WalletsCard(data: data),
       _UpcomingCard(charges: data.upcomingCharges),
-      const _RecentTransactionsCard(),
+      _TopCategoriesCard(data: data),
     ];
 
     return LayoutBuilder(
@@ -167,6 +170,27 @@ class _BalanceCard extends StatelessWidget {
               children: [
                 _Metric(label: context.tr('Income this month'), value: data.summary.income, color: finance.income),
                 _Metric(label: context.tr('Expenses this month'), value: data.summary.expenses, color: finance.expense),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Quick entry: the + button opens an expense, income is one tap here.
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => context.push('${Routes.newTransaction}?type=expense'),
+                    icon: const Icon(Icons.arrow_upward_rounded),
+                    label: Text(context.tr('Expense')),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => context.push('${Routes.newTransaction}?type=income'),
+                    icon: const Icon(Icons.arrow_downward_rounded),
+                    label: Text(context.tr('Income')),
+                  ),
+                ),
               ],
             ),
           ],
