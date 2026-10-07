@@ -38,10 +38,12 @@ class SettingsScreen extends ConsumerWidget {
                     SizedBox(
                       width: double.infinity,
                       child: SegmentedButton<ThemeMode>(
+                        // No icons/checkmark: "Sistema" must fit on a 360 dp phone.
+                        showSelectedIcon: false,
                         segments: [
-                          ButtonSegment(value: ThemeMode.light, label: Text(context.tr('Light')), icon: const Icon(Icons.light_mode_rounded)),
-                          ButtonSegment(value: ThemeMode.dark, label: Text(context.tr('Dark')), icon: const Icon(Icons.dark_mode_rounded)),
-                          ButtonSegment(value: ThemeMode.system, label: Text(context.tr('System')), icon: const Icon(Icons.brightness_auto_rounded)),
+                          ButtonSegment(value: ThemeMode.light, label: Text(context.tr('Light'))),
+                          ButtonSegment(value: ThemeMode.dark, label: Text(context.tr('Dark'))),
+                          ButtonSegment(value: ThemeMode.system, label: Text(context.tr('System'))),
                         ],
                         selected: {themeMode},
                         onSelectionChanged: (selection) => controller.setThemeMode(selection.first),
@@ -67,11 +69,12 @@ class SettingsScreen extends ConsumerWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
+                    showSelectedIcon: false,
                     segments: [
                       // Language names stay in their own language so they are always recognizable.
                       const ButtonSegment(value: 'en', label: Text('English')),
                       const ButtonSegment(value: 'es', label: Text('Español')),
-                      ButtonSegment(value: 'system', label: Text(context.tr('System')), icon: const Icon(Icons.language_rounded)),
+                      ButtonSegment(value: 'system', label: Text(context.tr('System'))),
                     ],
                     selected: {language},
                     onSelectionChanged: (s) => controller.setLanguage(s.first == 'system' ? null : Locale(s.first)),

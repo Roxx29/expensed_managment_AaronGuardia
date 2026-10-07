@@ -195,19 +195,25 @@ class _WalletEditDialogState extends State<WalletEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.initialName == null ? context.tr('New wallet') : context.tr('Edit wallet')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SegmentedButton<WalletKind>(
-            showSelectedIcon: false,
-            segments: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
               for (final k in WalletKind.values)
-                ButtonSegment(value: k, icon: Icon(walletIcon(k)), label: Text(walletKindLabel(context, k))),
+                ChoiceChip(
+                  avatar: Icon(walletIcon(k), size: 18),
+                  label: Text(walletKindLabel(context, k)),
+                  showCheckmark: false,
+                  selected: _kind == k,
+                  onSelected: (_) => setState(() => _kind = k),
+                ),
             ],
-            selected: {_kind},
-            onSelectionChanged: (s) => setState(() => _kind = s.first),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -255,6 +261,7 @@ class _JoinDialogState extends State<_JoinDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(context.tr('Join a wallet')),
       content: Column(
         mainAxisSize: MainAxisSize.min,

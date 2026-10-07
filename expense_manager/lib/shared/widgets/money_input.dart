@@ -89,6 +89,7 @@ class _MoneyDialogState extends State<_MoneyDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+        scrollable: true,
         title: Text(widget.title),
         content: Form(
           key: _formKey,

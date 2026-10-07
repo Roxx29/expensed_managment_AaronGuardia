@@ -231,6 +231,9 @@ class _BudgetCard extends StatelessWidget {
     final global = data.budgets.global;
     return SectionCard(
       title: context.tr('Monthly budget'),
+      trailing: global == null
+          ? TextButton(onPressed: () => context.go(Routes.budgets), child: Text(context.tr('Set')))
+          : null,
       child: global == null
           ? EmptyState(
               icon: Icons.savings_outlined,

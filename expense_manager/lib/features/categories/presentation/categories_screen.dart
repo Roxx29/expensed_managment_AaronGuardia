@@ -344,6 +344,7 @@ class _PaymentMethodDialogState extends State<_PaymentMethodDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.existing == null ? context.tr('New payment method') : context.tr('Edit payment method')),
       content: Form(
         key: _formKey,

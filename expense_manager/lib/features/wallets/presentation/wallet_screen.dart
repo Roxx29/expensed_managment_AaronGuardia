@@ -259,7 +259,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         body: Center(child: EmptyState(icon: Icons.info_outline_rounded, message: context.tr('This wallet is not on this phone.'))),
       );
     }
-    final entries = ref.watch(walletTransactionsProvider(wallet.id)).value ?? const <FinanceTransaction>[];
+    final entriesAsync = ref.watch(walletTransactionsProvider(wallet.id));
+    if (!entriesAsync.hasValue) {
+      return Scaffold(appBar: AppBar(title: Text(wallet.name)), body: const Center(child: CircularProgressIndicator()));
+    }
+    final entries = entriesAsync.requireValue;
     final members = ref.watch(walletMembersProvider(wallet.id)).value ?? const <String, WalletMember>{};
     final isMain = ref.watch(mainWalletIdProvider) == wallet.id;
     final me = currentUid;
@@ -952,6 +956,7 @@ class _BudgetDialogState extends State<_BudgetDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+        scrollable: true,
         title: Text(context.tr('Monthly budget')),
         content: Form(
           key: _form,

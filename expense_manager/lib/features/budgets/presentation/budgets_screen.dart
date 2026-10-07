@@ -145,7 +145,7 @@ class _GlobalBudgetCard extends ConsumerWidget {
           ? null
           : PopupMenuButton<String>(
               tooltip: context.tr('Options'),
-              onSelected: (v) => v == 'edit' ? edit() : actions.removeBudget(),
+              onSelected: (v) => v == 'edit' ? edit() : _removeWithUndo(context, actions, null, global.budgeted),
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'edit', child: Text(context.tr('Change amount'))),
                 PopupMenuItem(value: 'remove', child: Text(context.tr('Remove'))),
@@ -263,7 +263,7 @@ class _CategoryBudgetsCard extends ConsumerWidget {
                                 tooltip: context.tr('Options'),
                                 onSelected: (v) => v == 'edit'
                                     ? edit(category, e.value.budgeted)
-                                    : actions.removeBudget(categoryId: category.id),
+                                    : _removeWithUndo(context, actions, category.id, e.value.budgeted),
                                 itemBuilder: (_) => [
                                   PopupMenuItem(value: 'edit', child: Text(context.tr('Change amount'))),
                                   PopupMenuItem(value: 'remove', child: Text(context.tr('Remove'))),
@@ -279,4 +279,16 @@ class _CategoryBudgetsCard extends ConsumerWidget {
             ),
     );
   }
+}
+
+/// Removes a budget and offers "Undo" (sets the same amount again).
+Future<void> _removeWithUndo(BuildContext context, BudgetActions actions, String? categoryId, Money amount) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final removed = context.tr('Budget removed');
+  final undo = context.tr('Undo');
+  await actions.removeBudget(categoryId: categoryId);
+  messenger.showSnackBar(SnackBar(
+    content: Text(removed),
+    action: SnackBarAction(label: undo, onPressed: () => actions.setBudget(categoryId: categoryId, amount: amount)),
+  ));
 }

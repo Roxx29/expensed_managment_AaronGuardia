@@ -110,7 +110,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                             icon: hasAny ? Icons.search_off_rounded : Icons.receipt_long_outlined,
                             message: hasAny
                                 ? context.tr('No transactions match these filters.')
-                                : context.tr('No transactions yet. Tap Add to record your first expense or income.'),
+                                : context.tr('No transactions yet. Tap + to record your first expense or income.'),
                           ),
                         )
                       : _TransactionList(transactions: list, groupByDay: _isDateSort(filter.sort)),
@@ -396,6 +396,7 @@ class _AmountRangeDialogState extends State<_AmountRangeDialog> {
   Widget build(BuildContext context) {
     const keyboard = TextInputType.numberWithOptions(decimal: true);
     return AlertDialog(
+      scrollable: true,
       title: Text(context.tr('Amount range')),
       content: Column(
         mainAxisSize: MainAxisSize.min,

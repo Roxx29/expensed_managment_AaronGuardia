@@ -3,6 +3,8 @@
 /// A test checks that every `tr('...')` key in lib/ is here.
 const esStrings = <String, String>{
   'Could not read the receipt. The first time, the phone may need a minute to download the text reader. Try again.': 'No se pudo leer el recibo. La primera vez, el teléfono puede tardar un minuto en descargar el lector de texto. Inténtalo de nuevo.',
+  'Delete this backup?': '¿Eliminar esta copia de seguridad?',
+  'Budget removed': 'Presupuesto quitado',
   // More screen sections.
   'Your money': 'Tu dinero',
   'Planning': 'Planificación',
@@ -456,7 +458,7 @@ const esStrings = <String, String>{
   'No target date': 'Sin fecha meta',
   'No total, date or store found. Try a clearer photo.': 'No se encontró total, fecha ni comercio. Prueba con una foto más clara.',
   'No transactions match these filters.': 'Ningún movimiento coincide con estos filtros.',
-  'No transactions yet. Tap Add to record your first expense or income.': 'Aún no hay movimientos. Toca Agregar para registrar tu primer gasto o ingreso.',
+  'No transactions yet. Tap + to record your first expense or income.': 'Aún no hay movimientos. Toca + para registrar tu primer gasto o ingreso.',
   'No warnings right now. A good habit: set aside part of your income as soon as you receive it.': 'No hay alertas por ahora. Un buen hábito: aparta parte de tus ingresos apenas los recibas.',
   'None': 'Ninguna',
   'Not specified': 'Sin especificar',

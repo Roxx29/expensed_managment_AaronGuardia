@@ -349,20 +349,25 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SegmentedButton<BackupFrequency>(
-                      showSelectedIcon: false,
-                      segments: [
-                        ButtonSegment(value: BackupFrequency.off, label: Text(context.tr('Off'))),
-                        ButtonSegment(value: BackupFrequency.daily, label: Text(context.tr('Daily'))),
-                        ButtonSegment(value: BackupFrequency.weekly, label: Text(context.tr('Weekly'))),
-                        ButtonSegment(value: BackupFrequency.monthly, label: Text(context.tr('Monthly'))),
+                    // Chips, not a segmented button: four Spanish labels don't fit in a row.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final (f, label) in [
+                          (BackupFrequency.off, context.tr('Off')),
+                          (BackupFrequency.daily, context.tr('Daily')),
+                          (BackupFrequency.weekly, context.tr('Weekly')),
+                          (BackupFrequency.monthly, context.tr('Monthly')),
+                        ])
+                          ChoiceChip(
+                            label: Text(label),
+                            selected: frequency == f,
+                            onSelected: (_) {
+                              if (f == BackupFrequency.off || requirePremium(context, ref)) actions.setFrequency(f);
+                            },
+                          ),
                       ],
-                      selected: {frequency},
-                      onSelectionChanged: (s) {
-                        if (s.first == BackupFrequency.off || requirePremium(context, ref)) {
-                          actions.setFrequency(s.first);
-                        }
-                      },
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -439,6 +444,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                       await actions.exportEncrypted(b, passphrase, origin: _shareOrigin());
                                       return null;
                                     default:
+                                      final ok = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) => AlertDialog(
+                                          title: Text(c.tr('Delete this backup?')),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(c.tr('Cancel'))),
+                                            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(c.tr('Delete'))),
+                                          ],
+                                        ),
+                                      );
+                                      if (ok != true) return null;
                                       await actions.delete(b);
                                       return deletedText;
                                   }

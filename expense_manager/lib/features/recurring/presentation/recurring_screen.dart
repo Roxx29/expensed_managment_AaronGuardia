@@ -130,10 +130,14 @@ class RecurringScreen extends ConsumerWidget {
                         ].join('\n'),
                       ),
                       isThreeLine: true,
-                      trailing: Switch(
-                        value: item.isActive,
-                        onChanged: (active) =>
-                            ref.read(recurringActionsProvider).save(item.copyWith(isActive: active)),
+                      // Named for screen readers ("Netflix, switch, on").
+                      trailing: Semantics(
+                        label: item.name,
+                        child: Switch(
+                          value: item.isActive,
+                          onChanged: (active) =>
+                              ref.read(recurringActionsProvider).save(item.copyWith(isActive: active)),
+                        ),
                       ),
                     ),
                 ],
