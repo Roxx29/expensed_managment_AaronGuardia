@@ -194,5 +194,23 @@ service cloud.firestore {
       allow create: if isMe(uid) && !isBlocked(uid) && validRedemption();
       allow update, delete: if isAdmin(); // revoke / allow a new code
     }
+
+    // Problem reports (tickets) sent from the app: More › Report a problem.
+    // Anyone with a verified e-mail creates their own; only admins change them.
+    match /reports/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if verifiedEmail() && !isBlocked(request.auth.uid)
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'category', 'reason', 'appBuild', 'status', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.name is string && request.resource.data.name.size() <= 80
+        && request.resource.data.category in ['error', 'backup', 'sync', 'payments', 'other']
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 10 && request.resource.data.reason.size() <= 1000
+        && request.resource.data.appBuild is string && request.resource.data.appBuild.size() <= 20
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if isAdmin();
+    }
   }
 }

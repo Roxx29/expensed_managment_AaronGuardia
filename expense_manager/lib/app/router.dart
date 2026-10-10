@@ -22,6 +22,7 @@ import '../features/savings/presentation/savings_screen.dart';
 import '../features/security/presentation/security_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/statistics/presentation/statistics_screen.dart';
+import '../features/reports/presentation/report_screen.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
 import '../features/wallets/presentation/wallet_screen.dart';
@@ -97,6 +98,7 @@ GoRouter _buildRouter() => GoRouter(
               // screen asks for Premium after that.
               GoRoute(path: 'import', builder: (_, _) => const ImportScreen()),
               GoRoute(path: 'wallets', builder: (_, _) => const WalletsScreen()),
+              GoRoute(path: 'report', builder: (_, _) => const ReportScreen()),
               GoRoute(
                 path: 'assistant',
                 builder: (context, _) => PremiumGate(title: context.tr('Assistant'), child: const AssistantScreen()),

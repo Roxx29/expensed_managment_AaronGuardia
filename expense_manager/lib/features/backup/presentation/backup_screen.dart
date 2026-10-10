@@ -136,6 +136,35 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         false;
   }
 
+  /// The passphrase is not stored anywhere (zero-knowledge), so it cannot be
+  /// recovered: the only way out is a NEW cloud copy from this phone's data.
+  /// The new passphrase is asked first, so cancelling loses nothing.
+  Future<String?> _forgotPassphrase(CloudBackup cloud, bool autoUpload, String doneText) async {
+    final go = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(context.tr('Forgot your passphrase?')),
+            scrollable: true,
+            content: Text(
+              context.tr(
+                'Nobody can recover it: your backup is encrypted on your phone and Monchi never sees the passphrase. You can start over: choose a new passphrase and the data on THIS phone replaces the old cloud copy. The old copy can no longer be opened. On your other phones, turn automatic sync off and on and enter the new passphrase.',
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.tr('Choose a new passphrase'))),
+            ],
+          ),
+        ) ??
+        false;
+    if (!go || !mounted) return null;
+    final passphrase = await _askPassphrase(confirm: true);
+    if (passphrase == null) return null;
+    await cloud.upload(passphrase);
+    if (autoUpload) await cloud.enableAutoUpload(passphrase);
+    return doneText;
+  }
+
   /// Premium: keep this phone and the cloud copy merged (asks the passphrase
   /// once; with a cloud copy already there it must be that copy's one).
   void _setAutoUpload(bool on) {
@@ -228,6 +257,18 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   label: Text(context.tr('Restore from the cloud')),
                 ),
               ],
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        final doneText = context.tr('New passphrase set. Backup saved in the cloud');
+                        _run(() => _forgotPassphrase(cloud, autoUpload, doneText));
+                      },
+                child: Text(context.tr('Forgot your passphrase?')),
+              ),
             ),
             if (lastUpload != null) ...[
               const SizedBox(height: 8),

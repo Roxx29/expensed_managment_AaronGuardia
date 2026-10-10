@@ -86,4 +86,13 @@ void main() {
     expect(result.map((p) => p.goal.id), ['a', 'b']);
     expect(result.map((p) => p.saved.minor), [0, 100]);
   });
+
+  test('a deposit already withdrawn cannot be deleted (goal would go negative)', () {
+    final deposit = tx(TransactionType.savings, 30000);
+    final all = [deposit, tx(TransactionType.savings, 10000), tx(TransactionType.savingsWithdrawal, 25000)];
+    expect(SavingsCalculator.canDelete(deposit, all), isFalse); // 15000 - 30000 < 0
+    expect(SavingsCalculator.canDelete(all[1], all), isTrue); // 15000 - 10000 >= 0
+    expect(SavingsCalculator.canDelete(all[2], all), isTrue); // withdrawals can always go
+    expect(SavingsCalculator.canDelete(tx(TransactionType.expense, 5000), all), isTrue);
+  });
 }

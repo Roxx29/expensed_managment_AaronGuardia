@@ -121,13 +121,36 @@ class _DashboardBody extends ConsumerWidget {
                         Expanded(child: column(secondary)),
                       ],
                     )
-                  : column([...primary, ...secondary]),
+                  : column([...primary, _MoreSection(children: secondary)]),
             ),
           ),
         );
       },
     );
   }
+}
+
+/// Phones: balance, budget and the last 3 entries first; the rest is one tap away.
+class _MoreSection extends StatelessWidget {
+  const _MoreSection({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            maintainState: true,
+            title: Text(context.tr('Wallets, upcoming payments and top categories')),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              for (final child in children) ...[child, const SizedBox(height: 12)],
+            ],
+          ),
+        ),
+      );
 }
 
 class _BalanceCard extends StatelessWidget {
@@ -178,6 +201,7 @@ class _BalanceCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                     onPressed: () => context.push('${Routes.newTransaction}?type=expense'),
                     icon: const Icon(Icons.arrow_upward_rounded),
                     label: Text(context.tr('Expense')),
@@ -186,6 +210,7 @@ class _BalanceCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                     onPressed: () => context.push('${Routes.newTransaction}?type=income'),
                     icon: const Icon(Icons.arrow_downward_rounded),
                     label: Text(context.tr('Income')),
@@ -517,7 +542,7 @@ class _RecentTransactionsCard extends ConsumerWidget {
           : Column(
               children: [
                 // Keyed by id: a newly added transaction slides in, the rest stay put.
-                for (final (i, tx) in recent.indexed)
+                for (final (i, tx) in recent.take(3).indexed)
                   FadeSlideIn(
                     key: ValueKey(tx.id),
                     index: i,

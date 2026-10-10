@@ -656,7 +656,7 @@ class _MonthCard extends StatelessWidget {
             if (syncedAt != null)
               Text(
                 context.tr('Updated {time}', {'time': DateFormat.MMMd(context.lang).add_jm().format(syncedAt!)}),
-                style: small?.copyWith(color: on.withValues(alpha: 0.7)),
+                style: small?.copyWith(color: on.withValues(alpha: 0.87)),
               ),
           ],
         ),

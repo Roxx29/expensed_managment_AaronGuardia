@@ -93,6 +93,7 @@ class MoreScreen extends StatelessWidget {
                   ),
                 ),
                 tile(Icons.account_circle_rounded, context.tr('Your account'), () => context.push(Routes.welcome)),
+                tile(Icons.support_agent_rounded, context.tr('Report a problem'), () => context.go(Routes.report)),
                 tile(Icons.settings_rounded, context.tr('Settings'), () => context.go(Routes.settings)),
               ]),
             ],

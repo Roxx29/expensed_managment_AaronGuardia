@@ -8,6 +8,9 @@ abstract final class SettingKeys {
   static const themeMode = 'theme_mode';
   static const language = 'language';
   static const ambientBackground = 'ambient_background';
+  /// Category used by the last new expense / income: the next one starts with it.
+  static const lastExpenseCategory = 'last_category_expense';
+  static const lastIncomeCategory = 'last_category_income';
 }
 
 /// Persisted theme preference; defaults to following the system.

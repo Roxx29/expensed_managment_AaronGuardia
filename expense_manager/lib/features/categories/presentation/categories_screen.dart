@@ -271,8 +271,6 @@ class _CategoryDialogState extends State<_CategoryDialog> {
             Text(context.tr('Color'), style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
               children: [
                 for (final color in categoryColors)
                   Semantics(
@@ -282,12 +280,18 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => setState(() => _color = color),
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Color(color),
-                        child: color == _color
-                            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-                            : null,
+                      // 48 dp touch target around a 36 dp swatch.
+                      child: SizedBox.square(
+                        dimension: 48,
+                        child: Center(
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Color(color),
+                            child: color == _color
+                                ? const Icon(Icons.check_rounded, size: 20, color: Colors.white)
+                                : null,
+                          ),
+                        ),
                       ),
                     ),
                   ),

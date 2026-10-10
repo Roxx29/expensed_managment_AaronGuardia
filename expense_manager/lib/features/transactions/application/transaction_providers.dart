@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/entities/entities.dart';
+import '../../../domain/finance/savings_calculator.dart';
 import '../../../domain/finance/transaction_filter.dart';
 import '../../../shared/providers/providers.dart';
 import '../../wallets/application/wallet_cloud.dart';
@@ -35,6 +36,11 @@ final transactionByIdProvider = FutureProvider.autoDispose.family<FinanceTransac
   (ref, id) => ref.watch(transactionRepositoryProvider).getById(id),
 );
 
+/// Deleting this deposit would leave its savings goal below zero.
+class SavingsGoalWouldBeNegative implements Exception {
+  const SavingsGoalWouldBeNegative();
+}
+
 final transactionActionsProvider = Provider<TransactionActions>(TransactionActions.new);
 
 /// Write-side use cases for transactions. Widgets call these, never repositories.
@@ -48,10 +54,15 @@ class TransactionActions {
     _shareChange(tx.walletId);
   }
 
+  /// Throws [SavingsGoalWouldBeNegative] for a deposit that was already withdrawn.
   Future<void> delete(String id) async {
-    final walletId = (await _ref.read(transactionRepositoryProvider).getById(id))?.walletId;
-    await _ref.read(transactionRepositoryProvider).delete(id);
-    _shareChange(walletId);
+    final repo = _ref.read(transactionRepositoryProvider);
+    final tx = await repo.getById(id);
+    if (tx != null && !SavingsCalculator.canDelete(tx, await repo.watchAll().first)) {
+      throw const SavingsGoalWouldBeNegative();
+    }
+    await repo.delete(id);
+    _shareChange(tx?.walletId);
   }
 
   /// A change in a shared wallet is sent to the other members right away

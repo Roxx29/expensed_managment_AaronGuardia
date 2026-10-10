@@ -45,6 +45,15 @@ abstract final class AppTheme {
       colorScheme: scheme,
       // Transparent: MonchiBackground (app.dart) shows behind every screen.
       scaffoldBackgroundColor: Colors.transparent,
+      // Slightly larger than Material defaults; the system font scale still applies on top.
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(fontSize: 17),
+        bodyMedium: TextStyle(fontSize: 15.5),
+        bodySmall: TextStyle(fontSize: 13.5),
+        titleMedium: TextStyle(fontSize: 17),
+        labelLarge: TextStyle(fontSize: 15),
+        labelMedium: TextStyle(fontSize: 13),
+      ),
       extensions: [
         brightness == Brightness.light ? FinanceColors.light : FinanceColors.dark,
       ],
@@ -95,7 +104,7 @@ abstract final class AppTheme {
         indicatorColor: scheme.primaryContainer,
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.primary),
+          TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.primary),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -124,7 +133,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
   static const light = FinanceColors(
     income: Color(0xFF006E2F),
     expense: Color(0xFFC62828),
-    warning: Color(0xFFB26A00),
+    warning: Color(0xFF9A5B00), // 5.6:1 on white (was 4.4:1)
   );
 
   static const dark = FinanceColors(

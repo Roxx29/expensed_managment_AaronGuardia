@@ -18,6 +18,7 @@ abstract final class Routes {
   static const importStatement = '/more/import';
   static const assistant = '/more/assistant';
   static const wallets = '/more/wallets';
+  static const report = '/more/report';
 
   // Full-screen routes (outside the tab shell).
   static const premium = '/premium';

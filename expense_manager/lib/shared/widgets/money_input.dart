@@ -24,6 +24,7 @@ class MoneyFormField extends StatelessWidget {
     this.allowZero = false,
     this.large = false,
     this.enabled = true,
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
@@ -34,9 +35,13 @@ class MoneyFormField extends StatelessWidget {
   final bool large;
   final bool enabled;
 
+  /// Called when the keyboard's confirm key is pressed.
+  final ValueChanged<String>? onSubmitted;
+
   @override
   Widget build(BuildContext context) => TextFormField(
         controller: controller,
+        onFieldSubmitted: onSubmitted,
         autofocus: autofocus,
         enabled: enabled,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),

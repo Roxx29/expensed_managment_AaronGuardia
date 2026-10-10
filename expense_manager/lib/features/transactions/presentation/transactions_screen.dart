@@ -195,22 +195,30 @@ class _TransactionListState extends ConsumerState<_TransactionList> {
     );
   }
 
-  void _deleteWithUndo(FinanceTransaction tx) {
+  Future<void> _deleteWithUndo(FinanceTransaction tx) async {
     setState(() => _hidden.add(tx.id));
     final actions = ref.read(transactionActionsProvider);
-    actions.delete(tx.id);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(context.tr('Transaction deleted')),
-        action: SnackBarAction(
-          label: context.tr('Undo'),
-          onPressed: () {
-            actions.restore(tx);
-            if (mounted) setState(() => _hidden.remove(tx.id));
-          },
-        ),
-      ));
+    final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    final blocked = context.tr('This deposit was already partly withdrawn. Delete the withdrawals first.');
+    final deleted = context.tr('Transaction deleted');
+    final undo = context.tr('Undo');
+    try {
+      await actions.delete(tx.id);
+    } on SavingsGoalWouldBeNegative {
+      if (mounted) setState(() => _hidden.remove(tx.id));
+      messenger.showSnackBar(SnackBar(content: Text(blocked)));
+      return;
+    }
+    messenger.showSnackBar(SnackBar(
+      content: Text(deleted),
+      action: SnackBarAction(
+        label: undo,
+        onPressed: () {
+          actions.restore(tx);
+          if (mounted) setState(() => _hidden.remove(tx.id));
+        },
+      ),
+    ));
   }
 }
 

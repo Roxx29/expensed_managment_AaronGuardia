@@ -33,6 +33,23 @@ class SavingsProgress {
 }
 
 abstract final class SavingsCalculator {
+  /// False when deleting [tx] would leave its goal below zero: a deposit whose
+  /// money was already withdrawn must be kept until the withdrawals go first.
+  static bool canDelete(FinanceTransaction tx, List<FinanceTransaction> all) {
+    final id = tx.savingsGoalId;
+    if (id == null || tx.type != TransactionType.savings) return true;
+    var saved = 0;
+    for (final t in all) {
+      if (t.savingsGoalId != id || t.amount.currency != tx.amount.currency) continue;
+      saved += switch (t.type) {
+        TransactionType.savings => t.amount.minor,
+        TransactionType.savingsWithdrawal => -t.amount.minor,
+        TransactionType.expense || TransactionType.income || TransactionType.transfer => 0,
+      };
+    }
+    return saved - tx.amount.minor >= 0;
+  }
+
   /// Progress for every goal in [goals]. Transactions in another currency than
   /// the goal are ignored (no currency conversion).
   static List<SavingsProgress> progress(

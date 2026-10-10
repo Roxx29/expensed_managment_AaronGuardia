@@ -5,8 +5,8 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { firebaseConfig, prices } from './config.js?v=33';
-import { computeMetrics, featureUsage, stability } from './metrics.js?v=33';
+import { firebaseConfig, prices } from './config.js?v=35';
+import { computeMetrics, featureUsage, stability } from './metrics.js?v=35';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -46,7 +46,7 @@ function redemptionUntil(r) {
 const redemptionActive = (r) => r && !r.revoked && (r.days == null || redemptionUntil(r) > new Date());
 
 // ---------- state ----------
-let S = { users: [], grants: {}, redemptions: {}, codes: [], announcement: null, backups: null, wallets: null, sub: 'general', tab: location.hash.slice(1) || 'resumen', q: '' };
+let S = { users: [], reports: [], grants: {}, redemptions: {}, codes: [], announcement: null, backups: null, wallets: null, sub: 'general', tab: location.hash.slice(1) || 'resumen', q: '' };
 
 async function load() {
   const [u, g, r, c, a] = await Promise.all([
@@ -61,6 +61,11 @@ async function load() {
   // Feature adoption; null (shown as —) if the rules don't allow it yet.
   const count = async (name) => { try { return (await getDocs(collection(db, name))).size; } catch { return null; } };
   [S.backups, S.wallets] = await Promise.all([count('backups'), count('wallets')]);
+  // Tickets; empty (and the tab says so) if the rules for `reports` are not published yet.
+  try {
+    S.reports = (await getDocs(collection(db, 'reports'))).docs.map((d) => ({ id: d.id, ...d.data() }));
+    S.reportsError = '';
+  } catch (e) { S.reports = []; S.reportsError = e.code || e.message; }
 }
 function premiumOf(u) {
   const out = [];
@@ -82,10 +87,11 @@ function login(message) {
   )));
 }
 
-const TABS = [['resumen', 'Métricas'], ['usuarios', 'Usuarios'], ['regalos', 'Premium regalado'], ['codigos', 'Códigos'], ['anuncio', 'Anuncio']];
+const TABS = [['resumen', 'Métricas'], ['reportes', 'Reportes'], ['usuarios', 'Usuarios'], ['regalos', 'Premium regalado'], ['codigos', 'Códigos'], ['anuncio', 'Anuncio']];
 function render() {
-  const nav = h('nav', {}, TABS.map(([id, name]) => h('button', { class: S.tab === id ? 'on' : '', onclick: () => { S.tab = id; location.hash = id; render(); } }, name)));
-  const body = { resumen, usuarios, regalos, codigos, anuncio }[S.tab]?.() ?? resumen();
+  const open = S.reports.filter((r) => r.status !== 'done').length;
+  const nav = h('nav', {}, TABS.map(([id, name]) => h('button', { class: S.tab === id ? 'on' : '', onclick: () => { S.tab = id; location.hash = id; render(); } }, id === 'reportes' && open ? `${name} (${open})` : name)));
+  const body = { resumen, reportes, usuarios, regalos, codigos, anuncio }[S.tab]?.() ?? resumen();
   show(
     h('header', {}, h('img', { src: 'logo.png', alt: '' }), h('h1', {}, 'Monchi Admin'),
       h('div', { class: 'who' }, auth.currentUser.email,
@@ -249,6 +255,33 @@ function resumen() {
     h('nav', { class: 'subnav', 'aria-label': 'Métricas' }, subs.map(([id, name]) =>
       h('button', { class: S.sub === id ? 'on' : '', 'aria-pressed': S.sub === id ? 'true' : 'false', onclick: () => { S.sub = id; render(); } }, name))),
     ...({ general, funciones, estabilidad }[S.sub] ?? general)(),
+  ];
+}
+
+const CATEGORIES = { error: 'Error en la app', backup: 'Copia en la nube', sync: 'Sincronización', payments: 'Premium y pagos', other: 'Otra cosa' };
+const when = (d) => (d ? d.toLocaleString('es', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
+
+/** Tickets sent from the app (More › Reportar un problema): who, when and why. */
+function reportes() {
+  const show = S.repFilter ?? 'open';
+  const list = S.reports.filter((r) => show === 'all' || r.status !== 'done')
+    .sort((a, b) => (date(b.createdAt)?.getTime() ?? 0) - (date(a.createdAt)?.getTime() ?? 0));
+  const filters = [['open', 'Abiertos'], ['all', 'Todos']];
+  return [
+    S.reportsError ? h('div', { class: 'card' }, h('p', {}, 'No se pudieron leer los reportes (' + S.reportsError + '). Publica las reglas de firebase/firestore.rules en Firebase › Firestore › Reglas.')) : null,
+    h('nav', { class: 'subnav', 'aria-label': 'Filtro' }, filters.map(([id, name]) =>
+      h('button', { class: show === id ? 'on' : '', 'aria-pressed': show === id ? 'true' : 'false', onclick: () => { S.repFilter = id; render(); } }, name))),
+    ...list.map((r) => h('div', { class: 'card' },
+      h('div', { class: 'row', style: 'justify-content:space-between;align-items:start' },
+        h('div', {}, h('h2', {}, r.name || 'Sin nombre'), h('p', { class: 'sub' }, r.email, ' · ', when(date(r.createdAt)), ' · build ', r.appBuild ?? '—')),
+        h('div', {}, h('span', { class: 'chip ' + (r.status === 'done' ? 'play' : 'code') }, r.status === 'done' ? 'Resuelto' : 'Abierto'), h('span', { class: 'chip' }, CATEGORIES[r.category] ?? r.category))),
+      // textContent only: the reason is written by users.
+      h('p', { style: 'white-space:pre-wrap;margin:8px 0 14px' }, r.reason),
+      h('div', { class: 'row' },
+        h('a', { class: 'btn', href: `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent('Monchi: tu reporte')}` }, 'Responder por correo'),
+        h('button', { class: 'btn', onclick: () => act(() => updateDoc(doc(db, 'reports', r.id), { status: r.status === 'done' ? 'open' : 'done' }), r.status === 'done' ? 'Reabierto' : 'Marcado como resuelto') }, r.status === 'done' ? 'Reabrir' : 'Marcar como resuelto'),
+        h('button', { class: 'btn danger', onclick: () => confirm('¿Borrar este reporte?') && act(() => deleteDoc(doc(db, 'reports', r.id)), 'Reporte borrado') }, 'Borrar')))),
+    list.length || S.reportsError ? null : h('div', { class: 'card' }, h('p', { class: 'muted' }, show === 'open' ? 'No hay reportes abiertos.' : 'Aún no hay reportes.')),
   ];
 }
 

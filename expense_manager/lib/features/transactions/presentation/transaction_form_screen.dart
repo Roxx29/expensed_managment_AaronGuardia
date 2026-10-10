@@ -15,6 +15,7 @@ import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
 import '../../../shared/widgets/motion.dart';
 import '../../import/presentation/receipt_scanner.dart';
+import '../../settings/application/settings_providers.dart' show SettingKeys;
 import '../../wallets/application/wallet_cloud.dart' show currentUid;
 import '../../premium/application/usage_ping.dart';
 import '../../wallets/application/wallet_providers.dart';
@@ -101,6 +102,9 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   // False until a wallet is known: then a new entry follows the main wallet.
   bool _walletChosen = false;
   bool _saving = false;
+  // Category of the previous new entry: the next one starts with it.
+  String? _lastExpense;
+  String? _lastIncome;
 
   bool get _isEditing => widget.initial != null;
 
@@ -125,6 +129,19 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       _walletId = tx != null ? tx.walletId : (opened!.isEmpty ? null : opened);
       _walletChosen = true;
     }
+    if (tx == null) _loadLastCategories();
+  }
+
+  Future<void> _loadLastCategories() async {
+    final repo = ref.read(settingsRepositoryProvider);
+    final expense = await repo.read(SettingKeys.lastExpenseCategory);
+    final income = await repo.read(SettingKeys.lastIncomeCategory);
+    if (!mounted) return;
+    setState(() {
+      _lastExpense = expense;
+      _lastIncome = income;
+      _categoryId ??= _type == TransactionType.income ? income : expense;
+    });
   }
 
   @override
@@ -146,7 +163,6 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     // Keep an archived category visible when editing an old transaction.
     final current = ref.watch(categoryByIdProvider)[_categoryId];
     if (current != null && !categories.any((c) => c.id == current.id)) categories.add(current);
-    final selectedCategory = categories.any((c) => c.id == _categoryId) ? _categoryId : null;
     final methods = [...?ref.watch(paymentMethodsProvider).value];
     // Keep an archived payment method visible when editing an old record.
     final currentMethod = ref.watch(paymentMethodByIdProvider)[_paymentMethodId];
@@ -201,6 +217,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                       _type = s.first;
                       final current = ref.read(categoryByIdProvider)[_categoryId];
                       if (current != null && !current.appliesTo(_type)) _categoryId = null;
+                      if (!_isEditing) _categoryId ??= _type == TransactionType.income ? _lastIncome : _lastExpense;
                     }),
                   ),
                 if (!_isEditing && editableType) _walletPicker(),
@@ -213,7 +230,31 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   autofocus: !_isEditing,
                   large: true,
                   enabled: !isSavingsMove,
+                  // Confirm key on the keyboard saves: Expense button + amount + confirm.
+                  onSubmitted: (_) {
+                    if (!_saving) _save(currency);
+                  },
                 ),
+                if (!isSavingsMove) ...[
+                  const SizedBox(height: 16),
+                  Text(context.tr('Category'), style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  // One tap per category instead of a dropdown; tap again to clear.
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final c in categories)
+                        ChoiceChip(
+                          avatar: Icon(iconForKey(c.iconKey), size: 20, color: Color(c.color)),
+                          label: Text(c.label(context)),
+                          selected: c.id == _categoryId,
+                          materialTapTargetSize: MaterialTapTargetSize.padded,
+                          onSelected: (on) => setState(() => _categoryId = on ? c.id : null),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _description,
@@ -233,81 +274,71 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                     decoration: InputDecoration(labelText: context.tr('Source (optional)'), hintText: context.tr('e.g. Employer')),
                   ),
                 ],
-                if (!isSavingsMove) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String?>(
-                  key: ValueKey('category-$_type-${categories.length}'),
-                  initialValue: selectedCategory,
-                  isExpanded: true,
-                  decoration: InputDecoration(labelText: context.tr('Category')),
-                  items: [
-                    DropdownMenuItem(value: null, child: Text(context.tr('Uncategorized'))),
-                    for (final c in categories)
-                      DropdownMenuItem(
-                        value: c.id,
-                        child: Row(
-                          children: [
-                            Icon(iconForKey(c.iconKey), size: 20, color: Color(c.color)),
-                            const SizedBox(width: 12),
-                            Flexible(child: Text(c.label(context), overflow: TextOverflow.ellipsis)),
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: EdgeInsets.zero,
+                    // Rarely needed: payment method, date, project, notes.
+                    initiallyExpanded: _isEditing || widget.draft != null,
+                    maintainState: true,
+                    title: Text(context.tr('More details')),
+                    children: [
+                      if (!isSavingsMove) ...[
+                        DropdownButtonFormField<String?>(
+                          key: ValueKey('methods-${methods.length}'),
+                          initialValue: methods.any((m) => m.id == _paymentMethodId) ? _paymentMethodId : null,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: context.tr('Payment method')),
+                          items: [
+                            DropdownMenuItem(value: null, child: Text(context.tr('Not specified'))),
+                            for (final m in methods) DropdownMenuItem(value: m.id, child: Text(m.label(context))),
                           ],
+                          onChanged: (id) => setState(() => _paymentMethodId = id),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.event_rounded),
+                        title: Text(DateFormat.yMMMEd(context.lang).add_jm().format(_occurredAt)),
+                        subtitle: Text(context.tr('Date & time')),
+                        trailing: const Icon(Icons.edit_calendar_rounded),
+                        onTap: _pickDateTime,
+                      ),
+                      const SizedBox(height: 8),
+                      Autocomplete<String>(
+                        initialValue: TextEditingValue(text: _project),
+                        optionsBuilder: (value) {
+                          final q = value.text.trim().toLowerCase();
+                          return ref
+                              .read(projectsProvider)
+                              .where((p) => p.toLowerCase().contains(q) && p != value.text);
+                        },
+                        onSelected: (p) => _project = p,
+                        fieldViewBuilder: (context, controller, focusNode, _) => TextFormField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          maxLength: 60,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            labelText: context.tr('Project or client (optional)'),
+                            helperText: context.tr('Leave it empty for personal spending.'),
+                            prefixIcon: const Icon(Icons.work_outline_rounded),
+                          ),
+                          onChanged: (v) => _project = v,
                         ),
                       ),
-                  ],
-                  onChanged: (id) => setState(() => _categoryId = id),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String?>(
-                  key: ValueKey('methods-${methods.length}'),
-                  initialValue: methods.any((m) => m.id == _paymentMethodId) ? _paymentMethodId : null,
-                  isExpanded: true,
-                  decoration: InputDecoration(labelText: context.tr('Payment method')),
-                  items: [
-                    DropdownMenuItem(value: null, child: Text(context.tr('Not specified'))),
-                    for (final m in methods) DropdownMenuItem(value: m.id, child: Text(m.label(context))),
-                  ],
-                  onChanged: (id) => setState(() => _paymentMethodId = id),
-                ),
-                ],
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.event_rounded),
-                  title: Text(DateFormat.yMMMEd(context.lang).add_jm().format(_occurredAt)),
-                  subtitle: Text(context.tr('Date & time')),
-                  trailing: const Icon(Icons.edit_calendar_rounded),
-                  onTap: _pickDateTime,
-                ),
-                const SizedBox(height: 8),
-                Autocomplete<String>(
-                  initialValue: TextEditingValue(text: _project),
-                  optionsBuilder: (value) {
-                    final q = value.text.trim().toLowerCase();
-                    return ref
-                        .read(projectsProvider)
-                        .where((p) => p.toLowerCase().contains(q) && p != value.text);
-                  },
-                  onSelected: (p) => _project = p,
-                  fieldViewBuilder: (context, controller, focusNode, _) => TextFormField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    maxLength: 60,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      labelText: context.tr('Project or client (optional)'),
-                      helperText: context.tr('Leave it empty for personal spending.'),
-                      prefixIcon: const Icon(Icons.work_outline_rounded),
-                    ),
-                    onChanged: (v) => _project = v,
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _notes,
+                        maxLength: 1000,
+                        minLines: 2,
+                        maxLines: 5,
+                        decoration: InputDecoration(labelText: context.tr('Notes (optional)')),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _notes,
-                  maxLength: 1000,
-                  minLines: 2,
-                  maxLines: 5,
-                  decoration: InputDecoration(labelText: context.tr('Notes (optional)')),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -388,7 +419,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       amount: amount,
       occurredAt: _occurredAt,
       description: _description.text.trim(),
-      categoryId: _categoryId,
+      categoryId: ref.read(categoryByIdProvider)[_categoryId]?.appliesTo(_type) == true ? _categoryId : null,
       paymentMethodId: _paymentMethodId,
       recurringItemId: widget.initial?.recurringItemId,
       savingsGoalId: widget.initial?.savingsGoalId,
@@ -412,6 +443,13 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       await ref.read(transactionActionsProvider).save(tx);
       if (!mounted) return;
       if (!_isEditing) {
+        final used = tx.categoryId;
+        if (used != null) {
+          ref
+              .read(settingsRepositoryProvider)
+              .write(isIncome ? SettingKeys.lastIncomeCategory : SettingKeys.lastExpenseCategory, used)
+              .ignore();
+        }
         ref.read(usageTrackerProvider).track(
               _walletId != null ? 'wallet_entry' : (isIncome ? 'income_added' : 'expense_added'),
             );
@@ -449,7 +487,13 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     if (confirmed != true || !mounted) return;
     final actions = ref.read(transactionActionsProvider);
     final messenger = ScaffoldMessenger.of(context);
-    await actions.delete(tx.id);
+    final blocked = context.tr('This deposit was already partly withdrawn. Delete the withdrawals first.');
+    try {
+      await actions.delete(tx.id);
+    } on SavingsGoalWouldBeNegative {
+      messenger.showSnackBar(SnackBar(content: Text(blocked)));
+      return;
+    }
     if (!mounted) return;
     context.pop();
     messenger.showSnackBar(SnackBar(
