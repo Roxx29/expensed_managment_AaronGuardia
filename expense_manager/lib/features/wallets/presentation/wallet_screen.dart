@@ -16,6 +16,7 @@ import '../../../domain/entities/entities.dart';
 import '../../../domain/finance/budget_calculator.dart';
 import '../../../domain/finance/statistics_calculator.dart';
 import '../../../domain/finance/summary_calculator.dart';
+import '../../../domain/wallets/invite_code.dart' show inviteLink;
 import '../../../domain/wallets/wallet_stats.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/charts.dart';
@@ -94,8 +95,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       final code = await ref.read(walletCloudProvider).invite(wallet);
       if (!mounted) return;
       final text = context.tr(
-        'Join my wallet "{name}" in Monchi: open Monchi › More › Wallets › Join with a code and paste this code: {code}',
-        {'name': wallet.name, 'code': code},
+        'Join my wallet "{name}" in Monchi. Open this link on your phone: {link}',
+        {'name': wallet.name, 'link': inviteLink(code)},
       );
       await SharePlus.instance.share(ShareParams(text: text, subject: subject, sharePositionOrigin: origin));
     });

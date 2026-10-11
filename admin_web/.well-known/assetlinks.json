@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.nubiksoft.monchi",
+      "sha256_cert_fingerprints": [
+        "AD:57:55:F9:4C:D8:1D:5A:38:E8:78:C7:16:66:73:0C:10:23:29:23:60:DB:98:3A:BF:57:D3:86:75:E8:75:EC"
+      ]
+    }
+  }
+]

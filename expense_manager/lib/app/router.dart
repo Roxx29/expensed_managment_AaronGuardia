@@ -25,6 +25,7 @@ import '../features/statistics/presentation/statistics_screen.dart';
 import '../features/reports/presentation/report_screen.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
+import '../features/wallets/presentation/join_wallet_screen.dart';
 import '../features/wallets/presentation/wallet_screen.dart';
 import '../features/wallets/presentation/wallets_screen.dart';
 import '../shared/widgets/motion.dart';
@@ -110,6 +111,8 @@ GoRouter _buildRouter() => GoRouter(
     ),
     GoRoute(path: Routes.premium, pageBuilder: (_, state) => _modal(state, const PaywallScreen())),
     GoRoute(path: Routes.welcome, pageBuilder: (_, state) => _modal(state, const WelcomeScreen())),
+    // The whole link (the code is in its #fragment).
+    GoRoute(path: Routes.join, pageBuilder: (_, state) => _modal(state, JoinWalletScreen(link: state.uri.toString()))),
     // `new` is matched before `:id` because routes are checked in order.
     GoRoute(
       path: Routes.newTransaction,

@@ -13,6 +13,13 @@ void main() {
     expect(parseInviteCode('Únete a mi cartera en Monchi: $code ¡gracias!'), (inviteId: id, walletKey: key));
   });
 
+  test('the invite link carries the code after # and parses back', () {
+    final link = inviteLink(inviteCode(id, key));
+    expect(link, startsWith('https://monchiadmin.nubiksoft.com/join#'));
+    expect(Uri.parse(link).fragment, inviteCode(id, key));
+    expect(parseInviteCode(link), (inviteId: id, walletKey: key));
+  });
+
   test('rejects text without a code', () {
     expect(parseInviteCode(''), isNull);
     expect(parseInviteCode('hola.mundo'), isNull);

@@ -23,6 +23,8 @@ abstract final class Routes {
   // Full-screen routes (outside the tab shell).
   static const premium = '/premium';
   static const welcome = '/welcome';
+  /// Invite links https://monchiadmin.nubiksoft.com/join#<code> land here.
+  static const join = '/join';
   static const newTransaction = '/transaction/new';
   static String editTransaction(String id) => '/transaction/$id';
   static String newWalletTransaction(String walletId) => '$newTransaction?wallet=$walletId';
