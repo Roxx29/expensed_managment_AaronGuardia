@@ -197,7 +197,8 @@ class WalletCloud {
     }
   }
 
-  static String _profileKey(String walletId) => 'wallet.profile.$walletId';
+  // `security.` keeps it out of backups: a restored hash would stop this phone from publishing.
+  static String _profileKey(String walletId) => 'security.wallet_profile.$walletId';
 
   /// Wallet snapshots stay small (they are downloaded on every phone).
   static const maxSnapshotChars = 5 * 1024 * 1024;
@@ -385,7 +386,10 @@ class WalletCloud {
     } on Object {
       // Unreadable photo: the name alone is published.
     }
-    return jsonEncode({'name': profile.name.trim(), 'photo': photo});
+    // Account name when the profile has none, so members never see a blank card.
+    var name = profile.name.trim();
+    if (name.isEmpty) name = (FirebaseAuth.instance.currentUser?.displayName ?? '').trim();
+    return jsonEncode({'name': name, 'photo': photo});
   }
 
   Future<void> _publishProfile(Wallet wallet, String uid) async {

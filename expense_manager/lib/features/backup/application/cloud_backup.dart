@@ -185,10 +185,12 @@ class CloudBackup {
 
   /// Creates the account and sends the verification e-mail (gifts and the
   /// admin panel only trust verified e-mails, see firestore.rules).
-  Future<void> register(String email, String password) async {
+  Future<void> register(String email, String password, String name) async {
     await ensureCloudReady();
     final credential =
         await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email.trim(), password: password);
+    // The name shows in shared wallets, tickets and the admin panel.
+    await credential.user?.updateDisplayName(name.trim());
     try {
       await credential.user?.sendEmailVerification();
     } on FirebaseAuthException {

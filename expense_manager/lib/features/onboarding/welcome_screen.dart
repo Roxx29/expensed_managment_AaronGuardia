@@ -10,6 +10,7 @@ import '../backup/application/backup_providers.dart';
 import '../backup/application/cloud_backup.dart';
 import '../backup/presentation/backup_screen.dart' show PassphraseDialog, backupErrorMessage;
 import '../premium/application/gift_providers.dart';
+import '../profile/application/profile_providers.dart';
 
 const _skippedKey = 'welcome.skipped';
 const _doneKey = 'welcome.done';
@@ -57,6 +58,7 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _password2 = TextEditingController();
@@ -78,6 +80,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   @override
   void dispose() {
+    _name.dispose();
     _email.dispose();
     _password.dispose();
     _password2.dispose();
@@ -140,11 +143,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   void _submit() {
     if (!_form.currentState!.validate()) return;
-    final email = _email.text, password = _password.text;
+    final email = _email.text, password = _password.text, name = _name.text.trim();
     final checkInbox = context.tr('We sent you an e-mail to verify your account. Open the link, then come back.');
     _run(() async {
       if (_mode == _Mode.register) {
-        await _cloud.register(email, password);
+        await _cloud.register(email, password, name);
+        await ref.read(profileActionsProvider).setName(name);
         await _afterSignIn();
         return checkInbox;
       }
@@ -307,6 +311,18 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (register) ...[
+                // Required: other wallet members and our support see this name.
+                TextFormField(
+                  controller: _name,
+                  maxLength: 60,
+                  textCapitalization: TextCapitalization.words,
+                  autofillHints: const [AutofillHints.name],
+                  decoration: InputDecoration(labelText: context.tr('Your name'), prefixIcon: const Icon(Icons.person_rounded)),
+                  validator: (v) => (v ?? '').trim().isEmpty ? context.tr('Write your name.') : null,
+                ),
+                const SizedBox(height: 8),
+              ],
               TextFormField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,

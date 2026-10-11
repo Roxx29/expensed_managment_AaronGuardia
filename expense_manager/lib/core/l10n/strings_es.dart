@@ -575,6 +575,8 @@ const esStrings = <String, String>{
   'Transaction added': 'Movimiento agregado',
   'Transaction deleted': 'Movimiento eliminado',
   'Report a problem': 'Reportar un problema',
+  'Your name': 'Tu nombre',
+  'Write your name.': 'Escribe tu nombre.',
   'App error': 'Error en la app',
   'Sync': 'Sincronización',
   'Premium and payments': 'Premium y pagos',

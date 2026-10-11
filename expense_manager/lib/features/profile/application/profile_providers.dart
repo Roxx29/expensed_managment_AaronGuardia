@@ -50,6 +50,20 @@ class ProfileActions {
         ));
   }
 
+  /// Changes only the name (account sync, registration); the rest is kept.
+  Future<void> setName(String name) async {
+    final profile = await _current();
+    if (profile.name == name.trim()) return;
+    await _ref.read(profileRepositoryProvider).save(Profile(
+          id: profile.id,
+          currency: profile.currency,
+          avatarPath: profile.avatarPath,
+          name: name.trim(),
+          email: profile.email,
+          countryCode: profile.countryCode,
+        ));
+  }
+
   /// Picks a photo from the gallery. Returns false if cancelled.
   Future<bool> pickPhoto() async {
     final picked = await ImagePicker().pickImage(
