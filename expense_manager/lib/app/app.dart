@@ -7,6 +7,7 @@ import '../core/theme/app_theme.dart';
 import '../features/backup/application/backup_providers.dart';
 import '../features/notifications/application/notification_providers.dart';
 import '../features/premium/application/premium_providers.dart';
+import '../features/backup/application/email_verification.dart';
 import '../features/profile/application/account_sync.dart';
 import '../features/recurring/application/recurring_providers.dart';
 import '../features/security/presentation/app_lock_gate.dart';
@@ -14,6 +15,7 @@ import '../features/settings/application/settings_providers.dart';
 import '../features/premium/application/usage_ping.dart';
 import '../features/wallets/application/wallet_providers.dart';
 import '../shared/widgets/monchi_background.dart';
+import 'intro_video.dart';
 import 'router.dart';
 
 class ExpenseManagerApp extends ConsumerWidget {
@@ -34,6 +36,8 @@ class ExpenseManagerApp extends ConsumerWidget {
     ref.watch(usagePingProvider);
     // Profile name <-> account name (every phone of the account, wallets).
     ref.watch(accountProfileSyncProvider);
+    // Notices the e-mail verification link without any button.
+    ref.watch(emailVerificationWatcherProvider);
     // Keeps payment reminders and budget alerts in sync (no-op when off).
     ref.watch(notificationSyncProvider);
     // Listens for Google Play purchases from launch (none would be missed).
@@ -56,7 +60,7 @@ class ExpenseManagerApp extends ConsumerWidget {
       // The brand background sits behind every screen (scaffolds are transparent).
       builder: (context, child) => MonchiBackground(
         ambient: ambient,
-        child: AppLockGate(child: child!),
+        child: IntroVideo(child: AppLockGate(child: child!)),
       ),
     );
   }

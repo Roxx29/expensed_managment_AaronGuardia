@@ -8,6 +8,7 @@ import '../../data/backup/backup_storage.dart';
 import '../../shared/providers/providers.dart';
 import '../backup/application/backup_providers.dart';
 import '../backup/application/cloud_backup.dart';
+import '../backup/application/email_verification.dart';
 import '../backup/presentation/backup_screen.dart' show PassphraseDialog, backupErrorMessage;
 import '../premium/application/gift_providers.dart';
 import '../profile/application/profile_providers.dart';
@@ -196,6 +197,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final email = ref.watch(cloudUserProvider).value;
+    ref.listen(emailVerifiedProvider, (previous, next) {
+      if (previous?.value == false && next.value == true) {
+        ref.invalidate(giftPremiumProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Your e-mail is verified.'))));
+      }
+    });
     final restoredText = context.tr('Backup restored');
     final found = _found;
     final when = found?.date == null ? '' : DateFormat.yMMMd(context.lang).add_jm().format(found!.date!);
@@ -399,7 +406,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   List<Widget> _account(BuildContext context, String email) {
-    final verified = _cloud.emailVerified;
+    // Updates by itself when the link is opened (email_verification.dart).
+    final verified = ref.watch(emailVerifiedProvider).value ?? _cloud.emailVerified;
     final resent = context.tr('We sent you an e-mail to verify your account. Open the link, then come back.');
     final stillPending = context.tr('Your e-mail is not verified yet.');
     return [

@@ -576,6 +576,7 @@ const esStrings = <String, String>{
   'Transaction deleted': 'Movimiento eliminado',
   'Report a problem': 'Reportar un problema',
   'Your name': 'Tu nombre',
+  'Your e-mail is verified.': 'Tu correo está verificado.',
   'Write your name.': 'Escribe tu nombre.',
   'App error': 'Error en la app',
   'Sync': 'Sincronización',

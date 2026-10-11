@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
-import '../../../core/utils/validators.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
@@ -44,14 +43,12 @@ class _ProfileForm extends ConsumerStatefulWidget {
 class _ProfileFormState extends ConsumerState<_ProfileForm> {
   final _formKey = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.profile.name);
-  late final _email = TextEditingController(text: widget.profile.email ?? '');
   late String? _country = widget.profile.countryCode;
   bool _saving = false;
 
   @override
   void dispose() {
     _name.dispose();
-    _email.dispose();
     super.dispose();
   }
 
@@ -64,7 +61,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     try {
       await ref.read(profileActionsProvider).save(
             name: _name.text,
-            email: _email.text,
+            email: widget.profile.email, // not editable here any more; kept as it was
             countryCode: _country,
           );
       messenger.showSnackBar(SnackBar(content: Text(savedText)));
@@ -180,17 +177,6 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                   maxLength: 80,
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(labelText: context.tr('Name')),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _email,
-                  maxLength: 120,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(labelText: context.tr('Email (optional)')),
-                  validator: (v) {
-                    final text = (v ?? '').trim();
-                    return text.isEmpty || emailPattern.hasMatch(text) ? null : context.tr('Enter a valid email');
-                  },
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
