@@ -195,6 +195,18 @@ service cloud.firestore {
       allow update, delete: if isAdmin(); // revoke / allow a new code
     }
 
+    // Profile photo kept with the account (account_sync.dart): a small PNG in
+    // base64, or null after removing it. Only its owner reads it.
+    match /profiles/{uid} {
+      allow read: if isMe(uid);
+      allow delete: if isMe(uid) || isAdmin();
+      allow create, update: if isMe(uid) && !isBlocked(uid)
+        && request.resource.data.keys().hasOnly(['photo', 'updatedAt'])
+        && (request.resource.data.photo == null
+          || (request.resource.data.photo is string && request.resource.data.photo.size() <= 150000))
+        && request.resource.data.updatedAt == request.time;
+    }
+
     // Problem reports (tickets) sent from the app: More › Report a problem.
     // Anyone with a verified e-mail creates their own; only admins change them.
     match /reports/{id} {

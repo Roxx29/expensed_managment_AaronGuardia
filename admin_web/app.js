@@ -339,6 +339,7 @@ async function deleteUser(u) {
     await deleteDoc(doc(db, 'backups', u.uid));
     if (S.redemptions[u.uid]) await deleteDoc(doc(db, 'redemptions', u.uid));
     if (S.grants[lower(u.email)]) await deleteDoc(doc(db, 'grants', lower(u.email)));
+    await deleteDoc(doc(db, 'profiles', u.uid)).catch(() => {}); // profile photo (rules may not be published yet)
     await deleteDoc(doc(db, 'users', u.uid));
   }, 'Datos borrados');
   if (!done) return;

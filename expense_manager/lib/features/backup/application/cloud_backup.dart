@@ -428,6 +428,7 @@ class CloudBackup {
     await _deleteChunks(user.uid);
     await _meta(user.uid).delete();
     try {
+      await FirebaseFirestore.instance.doc('profiles/${user.uid}').delete(); // account photo
       // The admin panel row (refused for blocked accounts: the admin keeps it).
       await FirebaseFirestore.instance.doc('users/${user.uid}').delete();
     } on FirebaseException {

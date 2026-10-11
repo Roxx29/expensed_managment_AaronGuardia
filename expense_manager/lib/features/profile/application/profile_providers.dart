@@ -82,6 +82,15 @@ class ProfileActions {
 
   Future<void> removePhoto() => _replaceAvatar(null);
 
+  /// Photo downloaded from the account (account_sync.dart). The bytes are a
+  /// PNG; the `.jpg` name only satisfies [_avatarName], decoders read the content.
+  Future<void> setPhotoBytes(List<int> bytes) async {
+    final dir = await _ref.read(avatarDirectoryProvider.future);
+    final name = 'avatar_${newId().substring(0, 8)}.jpg';
+    await File('${dir.path}${Platform.pathSeparator}$name').writeAsBytes(bytes, flush: true);
+    await _replaceAvatar(name);
+  }
+
   Future<void> _replaceAvatar(String? newName) async {
     final profile = await _current();
     final old = profile.avatarPath;
