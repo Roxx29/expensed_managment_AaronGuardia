@@ -22,6 +22,7 @@ import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/money_input.dart';
 import '../../backup/application/backup_providers.dart';
+import '../../premium/application/crash_reporting.dart' show reportCaughtError;
 import '../../premium/presentation/paywall_screen.dart';
 import '../application/wallet_cloud.dart';
 import '../application/wallet_providers.dart';
@@ -58,11 +59,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final done = context.tr('Wallet up to date');
     try {
       await ref.read(walletCloudProvider).sync(wallet);
-      if (!mounted) return;
-      ref.invalidate(walletMembersProvider(wallet.id));
       if (!quiet) messenger.showSnackBar(SnackBar(content: Text(done)));
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportCaughtError(e, stack, 'wallet sync');
       if (!quiet && mounted) messenger.showSnackBar(SnackBar(content: Text(walletErrorMessage(context, e))));
+    } finally {
+      // Names and photos are read apart from the sync: refresh them even when it fails.
+      if (mounted) ref.invalidate(walletMembersProvider(wallet.id));
     }
   }
 

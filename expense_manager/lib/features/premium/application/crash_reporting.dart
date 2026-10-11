@@ -45,3 +45,12 @@ void installCrashReporting() {
     }
   }();
 }
+
+/// A caught error worth looking at in Crashlytics (non-fatal), e.g. a failed
+/// wallet sync. Only the error type and stack are sent, no user data.
+void reportCaughtError(Object error, StackTrace stack, String reason) {
+  if (!cloudAvailable) return;
+  pendingErrors++;
+  if (Firebase.apps.isEmpty) return;
+  unawaited(FirebaseCrashlytics.instance.recordError(error, stack, fatal: false, reason: reason));
+}

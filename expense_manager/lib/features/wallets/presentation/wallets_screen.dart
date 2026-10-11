@@ -12,7 +12,9 @@ import '../../../domain/entities/entities.dart';
 import '../../../domain/finance/summary_calculator.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../../data/backup/backup_codec.dart' show BackupException, LocalDataChanged;
 import '../../backup/application/cloud_backup.dart';
+import '../../backup/presentation/backup_screen.dart' show backupErrorMessage;
 import '../../premium/presentation/paywall_screen.dart';
 import '../application/wallet_cloud.dart';
 import '../application/wallet_providers.dart';
@@ -26,7 +28,16 @@ String walletErrorMessage(BuildContext context, Object error) => switch (error) 
       NotWalletOwner() => context.tr('Only the owner of the wallet can do this.'),
       FirebaseException(code: 'permission-denied') =>
         context.tr('This invite code is not valid or the wallet no longer exists.'),
-      _ => context.tr('Could not connect to the cloud. Check your internet connection and try again.'),
+      // Data problems keep their own message; the short code says exactly what
+      // failed, so a screenshot is enough to find the cause.
+      BackupException() || CloudChanged() || LocalDataChanged() => '${backupErrorMessage(context, error)} (${_errorCode(error)})',
+      _ => '${context.tr('Could not connect to the cloud. Check your internet connection and try again.')} (${_errorCode(error)})',
+    };
+
+String _errorCode(Object error) => switch (error) {
+      FirebaseException(:final code) => code,
+      BackupException(error: final kind) => kind.name,
+      _ => error.runtimeType.toString(),
     };
 
 /// Wallets (Carteras): shared business/family wallets — list, new, join.
