@@ -308,7 +308,8 @@ class WalletCloud {
         final local = await BackupCodec.validate(await codec.encode(walletId: wallet.id));
         // Decided on entries and the wallet row only: categories are added,
         // never compared, so members with different catalogs don't ping-pong.
-        final result = remote == null ? null : mergeBackups(_entriesOnly(local), _entriesOnly(remote));
+        final since = DateTime.tryParse(await settings.read(syncedAtKey(wallet.id)) ?? '');
+        final result = remote == null ? null : mergeBackups(_entriesOnly(local), _entriesOnly(remote), since: since);
         var synced = before;
         if (result != null && result.localChanged) {
           await codec.applyWallet(
@@ -333,6 +334,7 @@ class WalletCloud {
         }
         final version = result == null || result.remoteChanged ? await _upload(wallet, cloudVersion) : cloudVersion;
         await settings.write(_syncedKey(wallet.id), '$version|$synced');
+        if (result != null) await recordConflicts(settings, result.conflicts);
         await settings.write(syncedAtKey(wallet.id), DateTime.now().toIso8601String());
         break;
       } on CloudChanged {

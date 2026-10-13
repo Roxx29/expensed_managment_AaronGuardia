@@ -553,6 +553,15 @@ const esStrings = <String, String>{
   'The backup contains invalid data. Nothing was changed.': 'La copia de seguridad contiene datos no válidos. No se cambió nada.',
   'A part of the cloud backup is missing, maybe because another phone was uploading. Try again.':
       'Falta una parte de la copia en la nube, quizá porque otro teléfono la estaba subiendo. Inténtalo de nuevo.',
+  'With automatic sync on, your other phones will also get this data and lose changes made after the backup.':
+      'Con la sincronización automática activa, tus otros teléfonos también recibirán estos datos y perderán los cambios hechos después de la copia.',
+  'Your Premium ends today.': 'Tu Premium termina hoy.',
+  'Your Premium ends in {days} days.': 'Tu Premium termina en {days} días.',
+  'No ads · no hidden fees · cancel anytime from Google Play': 'Sin anuncios · sin cargos ocultos · cancela cuando quieras desde Google Play',
+  'Edited on two phones': 'Editado en dos teléfonos',
+  'These versions were replaced by a newer edit from another phone. Fix the entry if needed.': 'Estas versiones fueron reemplazadas por una edición más reciente de otro teléfono. Corrige el movimiento si hace falta.',
+  'Got it': 'Entendido',
+  'Privacy policy': 'Política de privacidad',
   'The backup file is damaged or incomplete.': 'La copia de seguridad está dañada o incompleta.',
   'The end date must be after the first charge.': 'La fecha de fin debe ser posterior al primer cobro.',
   'The file has no rows to import.': 'El archivo no tiene filas para importar.',
@@ -736,4 +745,32 @@ const esDefaultNames = <String, String>{
   'Subscriptions': 'Suscripciones',
   'Technology': 'Tecnología',
   'Transportation': 'Transporte',
+};
+
+/// Tooltips of the category icon keys (shared/widgets/common_widgets.dart).
+const esIconNames = <String, String>{
+  'food': 'Comida',
+  'gas': 'Gasolina',
+  'transportation': 'Transporte',
+  'clothing': 'Ropa',
+  'entertainment': 'Entretenimiento',
+  'health': 'Salud',
+  'education': 'Educación',
+  'home': 'Hogar',
+  'technology': 'Tecnología',
+  'shopping': 'Compras',
+  'subscriptions': 'Suscripciones',
+  'salary': 'Salario',
+  'other': 'Otros',
+  'pets': 'Mascotas',
+  'travel': 'Viajes',
+  'gifts': 'Regalos',
+  'sports': 'Deportes',
+  'kids': 'Niños',
+  'bills': 'Facturas',
+  'car': 'Auto',
+  'coffee': 'Café',
+  'business': 'Negocio',
+  'investments': 'Inversiones',
+  'savings': 'Ahorros',
 };

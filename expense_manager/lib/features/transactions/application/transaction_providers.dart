@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/strings_es.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/finance/savings_calculator.dart';
 import '../../../domain/finance/transaction_filter.dart';
@@ -24,7 +25,9 @@ class TransactionFilterNotifier extends Notifier<TransactionFilter> {
 final filteredTransactionsProvider = Provider<AsyncValue<List<FinanceTransaction>>>((ref) {
   final filter = ref.watch(transactionFilterProvider);
   final names = {
-    for (final c in ref.watch(categoryByIdProvider).values) c.id: c.name,
+    // Built-in names in both languages, so "comida" finds "Food" too.
+    for (final c in ref.watch(categoryByIdProvider).values)
+      c.id: c.isDefault ? '${c.name} ${esDefaultNames[c.name] ?? ''}' : c.name,
   };
   return ref
       .watch(allTransactionsProvider)

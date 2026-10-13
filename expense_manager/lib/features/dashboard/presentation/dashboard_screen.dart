@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/l10n/l10n.dart';
 import '../../../core/layout/breakpoints.dart';
+import '../../../core/money/currency.dart';
 import '../../../core/money/money.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/entities.dart';
@@ -19,6 +20,7 @@ import '../../../shared/widgets/transaction_tile.dart';
 import '../../backup/application/cloud_backup.dart';
 import '../../onboarding/welcome_screen.dart';
 import '../../premium/application/gift_providers.dart';
+import '../../premium/application/premium_providers.dart';
 import '../../wallets/application/wallet_providers.dart';
 import '../../wallets/presentation/wallet_widgets.dart';
 import '../application/dashboard_providers.dart';
@@ -83,6 +85,8 @@ class _DashboardBody extends ConsumerWidget {
     final primary = <Widget>[
       if (ref.watch(announcementProvider).value != null) const _AnnouncementCard(),
       if (ref.watch(cloudBackupReminderProvider)) const _BackupReminderCard(),
+      if (ref.watch(syncConflictsProvider).value?.isNotEmpty ?? false) const _SyncConflictsCard(),
+      if (ref.watch(premiumStatusProvider)?.endsSoon(DateTime.now()) ?? false) const _PremiumEndingCard(),
       // A shared main wallet goes above the personal balance.
       if (mainIsWallet) _WalletsCard(data: data),
       _BalanceCard(data: data),
@@ -412,6 +416,64 @@ class _BackupReminderCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Entries edited on two phones: the version that lost the sync, so nothing
+/// disappears without a word (cloud_backup.recordConflicts).
+class _SyncConflictsCard extends ConsumerWidget {
+  const _SyncConflictsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lost = ref.watch(syncConflictsProvider).value ?? const [];
+    return SectionCard(
+      title: context.tr('Edited on two phones'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.tr('These versions were replaced by a newer edit from another phone. Fix the entry if needed.')),
+          const SizedBox(height: 8),
+          for (final c in lost)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: const Icon(Icons.sync_problem_rounded),
+              title: Text('${c['d'] ?? ''}'),
+              trailing: Text(Money((c['a'] as num?)?.toInt() ?? 0, Currency.fromCode('${c['c']}')).format()),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => ref.read(settingsRepositoryProvider).write(syncConflictsKey, ''),
+              child: Text(context.tr('Got it')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A gift or a canceled plan ends within a week (premium_status.endsSoon).
+class _PremiumEndingCard extends ConsumerWidget {
+  const _PremiumEndingCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final days = ref.watch(premiumStatusProvider)?.daysLeft(DateTime.now()) ?? 0;
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.workspace_premium_rounded, color: FinanceColors.of(context).warning),
+        title: Text(
+          days <= 0
+              ? context.tr('Your Premium ends today.')
+              : context.tr('Your Premium ends in {days} days.', {'days': days}),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => context.push(Routes.premium),
       ),
     );
   }

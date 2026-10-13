@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/l10n/l10n.dart';
 import '../core/layout/breakpoints.dart';
@@ -95,6 +96,11 @@ class MoreScreen extends StatelessWidget {
                 tile(Icons.account_circle_rounded, context.tr('Your account'), () => context.push(Routes.welcome)),
                 tile(Icons.support_agent_rounded, context.tr('Report a problem'), () => context.go(Routes.report)),
                 tile(Icons.settings_rounded, context.tr('Settings'), () => context.go(Routes.settings)),
+                tile(
+                  Icons.privacy_tip_rounded,
+                  context.tr('Privacy policy'),
+                  () => launchUrl(Uri.parse('https://monchiadmin.nubiksoft.com/privacidad/'), mode: LaunchMode.externalApplication),
+                ),
               ]),
             ],
           ),

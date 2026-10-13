@@ -97,4 +97,24 @@ void main() {
     expect(result.merged.settings, [mine]);
     expect(result.localChanged, isFalse);
   });
+
+  group('conflicts (edited on both phones since the last sync)', () {
+    final since = DateTime(2026, 10, 1, 12);
+
+    test('the losing version is reported, whichever side wins', () {
+      final remoteWins = mergeBackups(backup([tx('a', 100, t0.add(const Duration(hours: 4)))]), backup([tx('a', 5, t1)]), since: since);
+      expect(remoteWins.conflicts.map((c) => c.amountMinor), [100]);
+      final localWins = mergeBackups(backup([tx('a', 100, t1)]), backup([tx('a', 5, t0.add(const Duration(hours: 4)))]), since: since);
+      expect(localWins.conflicts.map((c) => c.amountMinor), [5]);
+    });
+
+    test('a row changed on one side only is not a conflict', () {
+      final result = mergeBackups(backup([tx('a', 100, t0)]), backup([tx('a', 5, t1)]), since: since);
+      expect(result.conflicts, isEmpty);
+    });
+
+    test('without a previous sync nothing is a conflict', () {
+      expect(mergeBackups(backup([tx('a', 100, t1)]), backup([tx('a', 5, t1.add(const Duration(hours: 1)))])).conflicts, isEmpty);
+    });
+  });
 }

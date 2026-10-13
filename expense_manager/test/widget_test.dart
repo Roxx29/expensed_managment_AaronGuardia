@@ -109,6 +109,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'Amount'), '12.50');
     await tester.enterText(find.widgetWithText(TextFormField, 'Description'), 'Lunch');
+    await tester.ensureVisible(find.text('Save')); // larger text pushes it below the fold
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 

@@ -91,11 +91,20 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text(context.tr('Restore this backup?')),
-          content: Text(
-            context.tr(
-              'All current data will be replaced with the backup from {when}. A copy of your current data is saved first, so you can go back.',
-              {'when': when},
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.tr(
+                  'All current data will be replaced with the backup from {when}. A copy of your current data is saved first, so you can go back.',
+                  {'when': when},
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Restored rows get a new date, so they win over the other phones' edits.
+              Text(context.tr('With automatic sync on, your other phones will also get this data and lose changes made after the backup.')),
+            ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.tr('Cancel'))),

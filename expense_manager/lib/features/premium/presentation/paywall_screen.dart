@@ -119,6 +119,14 @@ class PaywallScreen extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
+              if (!premium) ...[
+                const SizedBox(height: 8),
+                Text(
+                  context.tr('No ads · no hidden fees · cancel anytime from Google Play'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
               const SizedBox(height: 16),
               if (status != null) FadeSlideIn(child: PremiumStatusCard(status: status)),
               for (final (i, (icon, text)) in benefits.indexed)

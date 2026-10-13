@@ -46,8 +46,9 @@ Sin anuncios y sin vender tus datos. Tus movimientos se quedan en tu teléfono y
 - Capturas: faltan (mínimo 2, teléfono). Tómalas en el teléfono desde la app instalada: Inicio, Nuevo gasto (con la animación), Presupuestos, Estadísticas, Monchi Premium.
 
 ## Datos para "Contenido de la app"
-- Política de privacidad: https://github.com/Roxx29/expensed_managment_AaronGuardia/blob/main/PRIVACY.md
+- Política de privacidad: https://monchiadmin.nubiksoft.com/privacidad/ (generada desde `PRIVACY.md` con `tools/privacy_page.py`)
+- Eliminación de cuenta (URL que pide Play): https://monchiadmin.nubiksoft.com/borrar-cuenta/
 - Anuncios: no
 - Público objetivo: 18+
-- Seguridad de los datos: correo e ID de usuario (gestión de cuenta, opcional, cifrado en tránsito, se puede borrar); archivos de copia (opcional, cifrados por el usuario); historial de compras vía Google Play.
+- Seguridad de los datos: respuestas pregunta por pregunta en `playstore/seguridad_datos.md`.
 - Categoría: Finanzas

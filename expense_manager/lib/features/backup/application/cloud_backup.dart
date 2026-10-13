@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,7 +10,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../data/backup/backup_codec.dart';
 import '../../../data/backup/backup_crypto.dart';
+import '../../../data/database/app_database.dart';
 import '../../../domain/backup/backup_policy.dart';
+import '../../../domain/repositories/repositories.dart';
 import '../../../shared/providers/providers.dart';
 import '../../premium/application/premium_providers.dart';
 import 'backup_providers.dart';
@@ -97,6 +100,30 @@ final lastCloudUploadProvider = StreamProvider<DateTime?>(
 );
 
 const _reminderSnoozeKey = 'backup.cloud_reminder_snoozed_until';
+
+/// Last successful personal sync of this phone (`security.`: never in a backup).
+const _lastSyncKey = 'security.sync_last_at';
+
+/// Entries edited on two phones whose version lost a sync (JSON list, newest
+/// last): `{d: description, a: amount minor, c: currency}`. Shown on Home.
+const syncConflictsKey = 'security.sync_conflicts';
+
+final syncConflictsProvider = StreamProvider<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(settingsRepositoryProvider).watch(syncConflictsKey).map(
+        (v) => v == null || v.isEmpty ? const [] : (jsonDecode(v) as List).cast<Map<String, dynamic>>(),
+      ),
+);
+
+/// Keeps the [lost] versions for the Home notice (the last 20).
+Future<void> recordConflicts(SettingsRepository settings, List<TransactionRecord> lost) async {
+  if (lost.isEmpty) return;
+  final old = (jsonDecode(await settings.read(syncConflictsKey) ?? '[]') as List).cast<Object?>();
+  final all = [
+    ...old,
+    for (final t in lost) {'d': t.description, 'a': t.amountMinor, 'c': t.currencyCode},
+  ];
+  await settings.write(syncConflictsKey, jsonEncode(all.length > 20 ? all.sublist(all.length - 20) : all));
+}
 
 final _reminderSnoozeProvider = StreamProvider<DateTime?>(
   (ref) => ref
@@ -308,7 +335,10 @@ class CloudBackup {
             rethrow;
           }
         }
-        final result = remote == null ? null : mergeBackups(await BackupCodec.validate(await codec.encode(walletKeys: true)), remote);
+        final since = DateTime.tryParse(await settings.read(_lastSyncKey) ?? '');
+        final result = remote == null
+            ? null
+            : mergeBackups(await BackupCodec.validate(await codec.encode(walletKeys: true)), remote, since: since);
         var synced = before;
         if (result != null && result.localChanged) {
           await codec.restore(result.merged, keepSettings: true, expectFingerprint: before);
@@ -321,6 +351,8 @@ class CloudBackup {
             : cloudVersion;
         if (version == cloudVersion) await _markUploaded();
         await settings.write(_syncedKey, '$version|$synced');
+        if (result != null) await recordConflicts(settings, result.conflicts);
+        await settings.write(_lastSyncKey, DateTime.now().toIso8601String());
         return;
       } on CloudChanged {
         if (attempt >= 3) rethrow;

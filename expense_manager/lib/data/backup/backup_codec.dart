@@ -438,7 +438,10 @@ class LocalDataChanged implements Exception {
 }
 
 class MergeResult {
-  const MergeResult(this.merged, {required this.localChanged, required this.remoteChanged});
+  const MergeResult(this.merged, {required this.localChanged, required this.remoteChanged, this.conflicts = const []});
+
+  /// Entries edited on both sides since the last sync: the versions that lost.
+  final List<TransactionRecord> conflicts;
 
   final ValidatedBackup merged;
 
@@ -453,7 +456,9 @@ class MergeResult {
 /// wins (soft deletions included); a tie is broken by the row's JSON, so
 /// every phone picks the same row. App settings and the profile (name,
 /// currency, photo path) stay [local]'s: they belong to the phone/person.
-MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote) {
+/// [since]: the last successful sync; an entry changed on both sides after it
+/// is a conflict and the losing version goes to [MergeResult.conflicts].
+MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote, {DateTime? since}) {
   var localChanged = false;
   var remoteChanged = false;
   List<T> merge<T extends DataClass>(
@@ -487,6 +492,18 @@ MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote) {
     return byId.values.toList();
   }
 
+  final conflicts = <TransactionRecord>[];
+  if (since != null) {
+    final mine = {for (final t in local.transactions) t.id: t};
+    for (final theirs in remote.transactions) {
+      final ours = mine[theirs.id];
+      if (ours == null || ours == theirs || !ours.updatedAt.isAfter(since) || !theirs.updatedAt.isAfter(since)) continue;
+      final order = theirs.updatedAt.compareTo(ours.updatedAt);
+      // Same winner as merge() below; ties are decided by the JSON there too.
+      final remoteWins = order > 0 || (order == 0 && jsonEncode(theirs.toJson()).compareTo(jsonEncode(ours.toJson())) > 0);
+      conflicts.add(remoteWins ? ours : theirs);
+    }
+  }
   final merged = ValidatedBackup(
     createdAt: local.createdAt,
     profiles: local.profiles,
@@ -499,5 +516,5 @@ MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote) {
     settings: local.settings,
     wallets: merge(local.wallets, remote.wallets, (r) => r.id, (r) => r.updatedAt),
   );
-  return MergeResult(merged, localChanged: localChanged, remoteChanged: remoteChanged);
+  return MergeResult(merged, localChanged: localChanged, remoteChanged: remoteChanged, conflicts: conflicts);
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,12 +10,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/providers.dart';
 import '../../backup/application/cloud_backup.dart';
+import '../../premium/application/crash_reporting.dart';
 import '../../wallets/application/wallet_cloud.dart';
 import 'profile_providers.dart';
 
 /// Hash of the account photo this phone already has ('none' = removed).
 /// `security.` keeps it out of backups (it describes this phone only).
 const _photoHashKey = 'security.profile_photo_hash';
+
+/// Set once the Google account photo was offered to this phone.
+const _googlePhotoKey = 'security.profile_google_photo';
 
 /// Width of the photo kept in the account (PNG, about 15–40 KB in base64).
 const _photoWidth = 128;
@@ -86,14 +91,24 @@ final accountProfileSyncProvider = Provider<void>((ref) {
       // Profile not loaded / offline: next launch.
     }
     try {
-      final snapshot = await doc(user.uid).get();
-      if (!snapshot.exists) {
-        await pushPhoto(); // first phone of this account: it uploads its photo
-        return;
-      }
-      final photo = snapshot.data()?['photo'];
+      // No document yet = no photo in the account (the first phone uploads its own below).
+      final photo = (await doc(user.uid).get()).data()?['photo'];
       final cloud = photo is String && photo.length <= 150000 ? photo : null;
       final hash = hashOf(cloud);
+      // No photo anywhere yet: start once with the Google account's photo
+      // (a photo removed later stays removed).
+      final google = user.photoURL;
+      if (cloud == null &&
+          google != null &&
+          await settings.read(_googlePhotoKey) == null &&
+          await ref.read(avatarFileProvider.future) == null) {
+        await settings.write(_googlePhotoKey, '1');
+        final bytes = await _download(google);
+        if (bytes != null) {
+          await ref.read(profileActionsProvider).setPhotoBytes(bytes); // the avatar listener uploads it
+          return;
+        }
+      }
       final last = await settings.read(_photoHashKey);
       if (last == hash) return; // already in sync
       // A phone that never synced keeps its own photo instead of losing it to
@@ -110,8 +125,11 @@ final accountProfileSyncProvider = Provider<void>((ref) {
       } else {
         await actions.setPhotoBytes(base64.decode(cloud));
       }
-    } on Object {
-      // Offline or the rules are not published yet: next launch.
+    } on FirebaseException catch (e, stack) {
+      // Offline: next launch. Anything else (e.g. rules not published) must be seen.
+      if (e.code != 'unavailable') reportCaughtError(e, stack, 'profile photo sync');
+    } on Object catch (e, stack) {
+      reportCaughtError(e, stack, 'profile photo sync');
     }
   }
 
@@ -125,3 +143,22 @@ final accountProfileSyncProvider = Provider<void>((ref) {
     if (previous != next) unawaited(pushPhoto());
   });
 });
+
+/// Bytes at [url] (the Google account photo, a few KB), or null on any error.
+Future<List<int>?> _download(String url) async {
+  final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+  try {
+    final response = await (await client.getUrl(Uri.parse(url))).close();
+    if (response.statusCode != 200) return null;
+    final bytes = <int>[];
+    await for (final chunk in response) {
+      bytes.addAll(chunk);
+      if (bytes.length > 2 * 1024 * 1024) return null; // not a profile photo
+    }
+    return bytes;
+  } on Object {
+    return null;
+  } finally {
+    client.close();
+  }
+}

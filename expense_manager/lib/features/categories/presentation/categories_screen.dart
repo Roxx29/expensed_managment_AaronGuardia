@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/l10n.dart';
+import '../../../core/l10n/strings_es.dart';
 import '../../../core/layout/breakpoints.dart';
 import '../../../core/utils/ids.dart';
 import '../../../domain/entities/entities.dart';
@@ -257,7 +258,9 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               children: [
                 for (final entry in categoryIcons.entries)
                   IconButton(
-                    tooltip: entry.key,
+                    tooltip: context.lang == 'es'
+                        ? (esIconNames[entry.key] ?? entry.key)
+                        : '${entry.key[0].toUpperCase()}${entry.key.substring(1)}',
                     isSelected: entry.key == _iconKey,
                     style: IconButton.styleFrom(
                       backgroundColor: entry.key == _iconKey ? scheme.secondaryContainer : null,
