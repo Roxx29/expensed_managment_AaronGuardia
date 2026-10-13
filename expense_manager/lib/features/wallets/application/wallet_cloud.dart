@@ -127,17 +127,34 @@ class WalletCloud {
     if (code == null) throw const InvalidInvite();
     final user = await _signedIn();
     final walletId = (await _db.doc('invites/${code.inviteId}').get()).data()?['walletId'];
-    if (walletId is! String || walletId.isEmpty || walletId.length > 64) throw const InvalidInvite();
+    if (walletId is! String || walletId.isEmpty || walletId.length > 64 || walletId.contains(RegExp('[:,]'))) {
+      throw const InvalidInvite();
+    }
+    final existed = (await _ref.read(walletRepositoryProvider).watchAll().first).any((w) => w.id == walletId);
     await _member(walletId, user.uid).set({
       'invite': code.inviteId,
       'profile': await encryptWithSecret(await _profileJson(), code.walletKey),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    // A leave still waiting to be retried must not delete this new membership.
+    await _setLeaves([for (final p in await _pendingLeaves()) if (!p.startsWith('$walletId:')) p]);
     // Placeholder until the first sync brings the real name and kind.
     final wallet = Wallet(id: walletId, name: 'Wallet', kind: WalletKind.other, secret: code.walletKey);
     await _ref.read(walletRepositoryProvider).save(wallet, placeholder: true);
     await _ref.read(settingsRepositoryProvider).write(_syncedKey(walletId), '');
-    await sync(wallet);
+    try {
+      await sync(wallet);
+    } on Object {
+      // No half-joined state: no member record and no nameless "Wallet" left behind.
+      if (!existed) {
+        try {
+          await leave(wallet);
+        } on Object {
+          // The sync error below is the one to show.
+        }
+      }
+      rethrow;
+    }
     return wallet;
   }
 
@@ -150,11 +167,43 @@ class WalletCloud {
       try {
         await _member(wallet.id, uid).delete();
       } on FirebaseException {
-        // Offline or already gone: the wallet is hidden anyway.
         if (strict) rethrow;
+        // Offline: hidden here now, the member record is removed on a later sync.
+        await _setLeaves([...await _pendingLeaves(), '${wallet.id}:$uid']);
       }
     }
     await _ref.read(walletRepositoryProvider).delete(wallet.id);
+  }
+
+  // ponytail: pending leaves live in one comma string in settings; fine for a few, move to a table if it grows.
+  static const _leavingKey = 'wallets.leaving';
+
+  /// `walletId:uid` of leaves that could not reach the cloud yet.
+  Future<List<String>> _pendingLeaves() async =>
+      ((await _ref.read(settingsRepositoryProvider).read(_leavingKey)) ?? '').split(',').where((e) => e.isNotEmpty).toList();
+
+  Future<void> _setLeaves(List<String> leaves) => _ref.read(settingsRepositoryProvider).write(_leavingKey, leaves.join(','));
+
+  Future<void> _retryLeaves() async {
+    final pending = await _pendingLeaves();
+    if (pending.isEmpty) return;
+    final uid = currentUid;
+    final left = <String>[];
+    for (final p in pending) {
+      final i = p.indexOf(':');
+      // Another account is signed in: kept for when the original one returns.
+      if (i < 0 || p.substring(i + 1) != uid) {
+        left.add(p);
+        continue;
+      }
+      try {
+        await _member(p.substring(0, i), uid!).delete();
+      } on FirebaseException catch (e) {
+        // permission-denied: no longer a member, nothing left to remove.
+        if (e.code != 'permission-denied') left.add(p);
+      }
+    }
+    await _setLeaves(left);
   }
 
   static String _syncedKey(String walletId) => 'wallet.synced.$walletId';
@@ -252,7 +301,7 @@ class WalletCloud {
           } on BackupException catch (e) {
             // A chunk vanished because another member replaced the copy meanwhile.
             final latest = '${(await _meta(wallet.id).get()).data()?['version'] ?? ''}';
-            if (e.error == BackupError.corrupted && latest != cloudVersion) throw const CloudChanged();
+            if (e.error == BackupError.chunkMissing && latest != cloudVersion) throw const CloudChanged();
             rethrow;
           }
         }
@@ -349,7 +398,8 @@ class WalletCloud {
       }
       throw const CloudChanged();
     }
-    final limit = int.parse(version);
+    // The replaced version stays until the next upload (a member may still be downloading it).
+    final limit = floor > 0 ? floor : int.parse(version);
     final all = await _db.collection('wallets/${wallet.id}/chunks').get();
     for (final d in all.docs) {
       if ((int.tryParse(d.id.split('_').first) ?? 0) < limit) await d.reference.delete();
@@ -362,7 +412,7 @@ class WalletCloud {
     final count = (meta['chunks'] as num?)?.toInt() ?? 0;
     for (var i = 0; i < count; i++) {
       final part = (await _chunk(walletId, '${meta['version']}', i).get()).data()?['data'];
-      if (part is! String) throw const BackupException(BackupError.corrupted);
+      if (part is! String) throw const BackupException(BackupError.chunkMissing);
       content.write(part);
       if (content.length > maxSnapshotChars) throw const BackupException(BackupError.tooLarge);
     }
@@ -432,6 +482,11 @@ class WalletCloud {
   /// next launch/resume/open tries again.
   Future<void> syncAllQuietly() async {
     if (!cloudAvailable) return;
+    try {
+      await _retryLeaves();
+    } on Object {
+      // Next time.
+    }
     final wallets = await _ref.read(walletRepositoryProvider).watchAll().first;
     for (final w in wallets) {
       try {

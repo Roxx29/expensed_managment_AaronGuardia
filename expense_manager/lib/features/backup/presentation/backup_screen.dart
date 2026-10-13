@@ -26,6 +26,8 @@ String backupErrorMessage(BuildContext context, Object error) => switch (error) 
       BackupException(error: BackupError.newerVersion) =>
         context.tr('This backup was made with a newer version of the app. Update the app first.'),
       BackupException(error: BackupError.corrupted) => context.tr('The backup file is damaged or incomplete.'),
+      BackupException(error: BackupError.chunkMissing) =>
+        context.tr('A part of the cloud backup is missing, maybe because another phone was uploading. Try again.'),
       BackupException(error: BackupError.invalidData) =>
         context.tr('The backup contains invalid data. Nothing was changed.'),
       BackupException(error: BackupError.wrongPassphrase) =>

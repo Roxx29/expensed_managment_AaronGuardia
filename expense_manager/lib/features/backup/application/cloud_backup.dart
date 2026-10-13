@@ -274,7 +274,9 @@ class CloudBackup {
         throw const CloudChanged();
       }
     }
-    await _deleteChunks(uid, olderThan: version);
+    // The replaced version stays until the next upload, so a phone still
+    // downloading it does not lose its fragments.
+    await _deleteChunks(uid, olderThan: floor > 0 ? '$floor' : version);
     await _markUploaded();
     return version;
   }
@@ -302,7 +304,7 @@ class CloudBackup {
           } on BackupException catch (e) {
             // A chunk vanished because another phone replaced the copy meanwhile: merge again.
             final latest = '${(await _meta(uid).get()).data()?['version'] ?? ''}';
-            if (e.error == BackupError.corrupted && latest != cloudVersion) throw const CloudChanged();
+            if (e.error == BackupError.chunkMissing && latest != cloudVersion) throw const CloudChanged();
             rethrow;
           }
         }
@@ -382,13 +384,28 @@ class CloudBackup {
     }
   }
 
+  /// The newest cloud copy; when a fragment vanishes because another phone
+  /// replaced it meanwhile, reads the new version (up to 3 tries).
+  Future<String> _downloadLatest(String uid) async {
+    for (var attempt = 1;; attempt++) {
+      final meta = (await _meta(uid).get()).data();
+      if (meta == null) throw FirebaseException(plugin: 'monchi', code: 'not-found');
+      try {
+        return await _download(uid, meta);
+      } on BackupException catch (e) {
+        final latest = '${(await _meta(uid).get()).data()?['version'] ?? ''}';
+        if (e.error != BackupError.chunkMissing || latest == '${meta['version']}' || attempt >= 3) rethrow;
+      }
+    }
+  }
+
   /// The encrypted text of the cloud copy described by [meta].
   Future<String> _download(String uid, Map<String, dynamic> meta) async {
     final content = StringBuffer();
     for (var i = 0; i < (meta['chunks'] as num).toInt(); i++) {
       final part = (await _chunk(uid, '${meta['version']}', i).get()).data()?['data'];
       // Missing while another phone replaces the backup: try again later.
-      if (part is! String) throw const BackupException(BackupError.corrupted);
+      if (part is! String) throw const BackupException(BackupError.chunkMissing);
       content.write(part);
     }
     final text = content.toString();
@@ -409,9 +426,7 @@ class CloudBackup {
   /// Returns false when the passphrase prompt is cancelled.
   Future<bool> restore({required Future<String?> Function() askPassphrase}) async {
     final uid = _user.uid;
-    final meta = (await _meta(uid).get()).data();
-    if (meta == null) throw FirebaseException(plugin: 'monchi', code: 'not-found');
-    final text = await _download(uid, meta);
+    final text = await _downloadLatest(uid);
     final passphrase = await askPassphrase();
     if (passphrase == null) return false;
     await _ref.read(backupServiceProvider).restoreFromContent(await decryptBackup(text, passphrase));

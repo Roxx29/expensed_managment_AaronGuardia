@@ -7,7 +7,16 @@ import 'package:drift/drift.dart';
 import '../database/app_database.dart';
 
 /// Why a backup file was rejected. The UI turns these into messages.
-enum BackupError { tooLarge, notABackup, newerVersion, corrupted, invalidData, wrongPassphrase }
+enum BackupError {
+  tooLarge,
+  notABackup,
+  newerVersion,
+  corrupted,
+  invalidData,
+  wrongPassphrase,
+  /// A cloud fragment is gone: usually another phone replaced the copy meanwhile.
+  chunkMissing,
+}
 
 class BackupException implements Exception {
   const BackupException(this.error);

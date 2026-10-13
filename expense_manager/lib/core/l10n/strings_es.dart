@@ -551,6 +551,8 @@ const esStrings = <String, String>{
   'Target date (optional)': 'Fecha meta (opcional)',
   'Target date: {date}': 'Fecha meta: {date}',
   'The backup contains invalid data. Nothing was changed.': 'La copia de seguridad contiene datos no válidos. No se cambió nada.',
+  'A part of the cloud backup is missing, maybe because another phone was uploading. Try again.':
+      'Falta una parte de la copia en la nube, quizá porque otro teléfono la estaba subiendo. Inténtalo de nuevo.',
   'The backup file is damaged or incomplete.': 'La copia de seguridad está dañada o incompleta.',
   'The end date must be after the first charge.': 'La fecha de fin debe ser posterior al primer cobro.',
   'The file has no rows to import.': 'El archivo no tiene filas para importar.',
