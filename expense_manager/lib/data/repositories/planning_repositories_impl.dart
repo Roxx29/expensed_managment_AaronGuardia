@@ -4,6 +4,7 @@ import '../../core/money/currency.dart';
 import '../../core/money/money.dart';
 import '../../core/time/year_month.dart';
 import '../../core/utils/ids.dart';
+import '../../core/utils/sync_clock.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/finance/recurrence.dart';
 import '../../domain/repositories/repositories.dart';
@@ -65,7 +66,7 @@ class DriftBudgetRepository implements BudgetRepository {
   /// [month] are soft-deleted, the earlier active row gets `endMonth = month - 1`.
   /// This guarantees budget periods never overlap.
   Future<void> _endActive(String? categoryId, YearMonth month) async {
-    final now = DateTime.now();
+    final now = SyncClock.now();
     await (_db.update(_b)
           ..where((b) =>
               b.deletedAt.isNull() &
@@ -136,14 +137,14 @@ class DriftRecurringItemRepository implements RecurringItemRepository {
             paymentMethodId: Value(item.paymentMethodId),
             isActive: Value(item.isActive),
             notes: Value(item.notes),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(SyncClock.now()),
           ),
         );
   }
 
   @override
   Future<void> delete(String id) {
-    final now = DateTime.now();
+    final now = SyncClock.now();
     return (_db.update(_db.recurringItems)..where((r) => r.id.equals(id)))
         .write(RecurringItemsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
   }

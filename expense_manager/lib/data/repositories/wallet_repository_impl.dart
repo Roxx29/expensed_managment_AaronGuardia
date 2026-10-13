@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../core/utils/sync_clock.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/repositories.dart';
 import '../database/app_database.dart';
@@ -28,14 +29,14 @@ class DriftWalletRepository implements WalletRepository {
           kind: wallet.kind,
           secret: wallet.secret,
           ownerUid: Value(wallet.ownerUid),
-          updatedAt: Value(placeholder ? DateTime.utc(2000) : DateTime.now()),
+          updatedAt: Value(placeholder ? DateTime.utc(2000) : SyncClock.now()),
           deletedAt: const Value(null),
         ));
   }
 
   @override
   Future<void> delete(String id) {
-    final now = DateTime.now();
+    final now = SyncClock.now();
     return (_db.update(_db.wallets)..where((w) => w.id.equals(id)))
         .write(WalletsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
   }

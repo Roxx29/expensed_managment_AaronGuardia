@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../core/utils/sync_clock.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/repositories.dart';
 import '../database/app_database.dart';
@@ -44,7 +45,7 @@ class DriftCategoryRepository implements CategoryRepository {
             isDefault: Value(c.isDefault),
             sortOrder: Value(c.sortOrder),
             archived: Value(c.archived),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(SyncClock.now()),
           ),
         );
   }
@@ -53,7 +54,7 @@ class DriftCategoryRepository implements CategoryRepository {
   @override
   Future<void> archive(String id) =>
       (_db.update(_db.categories)..where((c) => c.id.equals(id))).write(
-        CategoriesCompanion(archived: const Value(true), updatedAt: Value(DateTime.now())),
+        CategoriesCompanion(archived: const Value(true), updatedAt: Value(SyncClock.now())),
       );
 }
 
@@ -91,7 +92,7 @@ class DriftPaymentMethodRepository implements PaymentMethodRepository {
             type: p.type,
             isDefault: Value(p.isDefault),
             archived: Value(p.archived),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(SyncClock.now()),
           ),
         );
   }
@@ -99,6 +100,6 @@ class DriftPaymentMethodRepository implements PaymentMethodRepository {
   @override
   Future<void> archive(String id) =>
       (_db.update(_db.paymentMethods)..where((p) => p.id.equals(id))).write(
-        PaymentMethodsCompanion(archived: const Value(true), updatedAt: Value(DateTime.now())),
+        PaymentMethodsCompanion(archived: const Value(true), updatedAt: Value(SyncClock.now())),
       );
 }

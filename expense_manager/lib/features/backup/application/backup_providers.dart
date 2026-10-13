@@ -73,12 +73,31 @@ final cloudSyncOnResumeProvider = Provider<void>((ref) {
   ref.onDispose(listener.dispose);
 });
 
+Future<void>? _syncing;
+var _syncAgain = false;
+
+/// One sync at a time: a call during a sync runs once more after it.
 Future<void> _syncQuietly(CloudBackup cloud) async {
+  if (_syncing != null) {
+    _syncAgain = true;
+    await _syncing;
+    return;
+  }
+  _syncing = () async {
+    do {
+      _syncAgain = false;
+      try {
+        await cloud.syncIfAuto();
+      } on Object {
+        // Offline, another phone busy or a wrong saved passphrase: tried again on
+        // the next launch/resume; "Sync now" shows the reason.
+      }
+    } while (_syncAgain);
+  }();
   try {
-    await cloud.syncIfAuto();
-  } on Object {
-    // Offline, another phone busy or a wrong saved passphrase: tried again on
-    // the next launch/resume; "Sync now" shows the reason.
+    await _syncing;
+  } finally {
+    _syncing = null;
   }
 }
 

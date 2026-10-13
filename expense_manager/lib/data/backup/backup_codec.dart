@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 
+import '../../core/utils/sync_clock.dart';
 import '../database/app_database.dart';
 
 /// Why a backup file was rejected. The UI turns these into messages.
@@ -466,6 +467,7 @@ MergeResult mergeBackups(ValidatedBackup local, ValidatedBackup remote) {
     for (final r in theirs) {
       final key = id(r);
       seen.add(key);
+      SyncClock.observe(updatedAt(r));
       final current = byId[key];
       if (current == null) {
         byId[key] = r;

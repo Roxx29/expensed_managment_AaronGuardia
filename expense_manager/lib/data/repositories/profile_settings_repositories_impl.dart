@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/money/currency.dart';
 import '../../core/utils/validators.dart';
+import '../../core/utils/sync_clock.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/repositories.dart';
 import '../database/app_database.dart';
@@ -42,7 +43,7 @@ class DriftProfileRepository implements ProfileRepository {
             avatarPath: Value(profile.avatarPath),
             countryCode: Value(profile.countryCode),
             currencyCode: profile.currency.code,
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(SyncClock.now()),
           ),
         );
   }

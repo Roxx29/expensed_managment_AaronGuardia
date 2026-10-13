@@ -482,6 +482,29 @@ class WalletCloud {
   /// next launch/resume/open tries again.
   Future<void> syncAllQuietly() async {
     if (!cloudAvailable) return;
+    // One run at a time: a call during a run makes it go once more.
+    if (_syncingAll != null) {
+      _syncAllAgain = true;
+      await _syncingAll;
+      return;
+    }
+    _syncingAll = () async {
+      do {
+        _syncAllAgain = false;
+        await _syncAllOnce();
+      } while (_syncAllAgain);
+    }();
+    try {
+      await _syncingAll;
+    } finally {
+      _syncingAll = null;
+    }
+  }
+
+  static Future<void>? _syncingAll;
+  static var _syncAllAgain = false;
+
+  Future<void> _syncAllOnce() async {
     try {
       await _retryLeaves();
     } on Object {

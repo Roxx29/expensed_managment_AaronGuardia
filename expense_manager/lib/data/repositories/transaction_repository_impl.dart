@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/money/currency.dart';
 import '../../core/money/money.dart';
+import '../../core/utils/sync_clock.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/repositories.dart';
 import '../database/app_database.dart';
@@ -106,13 +107,13 @@ class DriftTransactionRepository implements TransactionRepository {
             project: Value(tx.project?.trim().isEmpty ?? true ? null : tx.project!.trim()),
             walletId: Value(tx.walletId),
             createdBy: Value(tx.createdBy),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(SyncClock.now()),
             deletedAt: const Value(null),
           );
 
   @override
   Future<void> delete(String id) {
-    final now = DateTime.now();
+    final now = SyncClock.now();
     return (_db.update(_t)..where((t) => t.id.equals(id))).write(
       TransactionsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );

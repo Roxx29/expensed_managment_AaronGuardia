@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/money/currency.dart';
 import '../../core/money/money.dart';
+import '../../core/utils/sync_clock.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/savings_goal_repository.dart';
 import '../database/app_database.dart';
@@ -44,7 +45,7 @@ class DriftSavingsGoalRepository implements SavingsGoalRepository {
             currencyCode: goal.target.currency.code,
             targetDate: Value(goal.targetDate),
             archived: Value(goal.archived),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(SyncClock.now()),
           ),
         );
   }
@@ -52,12 +53,12 @@ class DriftSavingsGoalRepository implements SavingsGoalRepository {
   @override
   Future<void> archive(String id) =>
       (_db.update(_db.savingsGoals)..where((g) => g.id.equals(id))).write(
-        SavingsGoalsCompanion(archived: const Value(true), updatedAt: Value(DateTime.now())),
+        SavingsGoalsCompanion(archived: const Value(true), updatedAt: Value(SyncClock.now())),
       );
 
   @override
   Future<void> delete(String id) {
-    final now = DateTime.now();
+    final now = SyncClock.now();
     return (_db.update(_db.savingsGoals)..where((g) => g.id.equals(id)))
         .write(SavingsGoalsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
   }
